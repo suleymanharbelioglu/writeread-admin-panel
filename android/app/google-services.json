@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "436595745003",
+    "project_id": "comics-app-e163a",
+    "storage_bucket": "comics-app-e163a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:436595745003:android:6b1f4157722b1575f0deae",
+        "android_client_info": {
+          "package_name": "com.example.comics"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "436595745003-m62cc6r5gih9knhn4oveec93o548sj99.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDkzabN2ljGa0WKDOX3N3peu0qIDUng_mA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "436595745003-m62cc6r5gih9knhn4oveec93o548sj99.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "436595745003-vqjmn6pueljo1dqo550q32ob9iopu643.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.comics"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:436595745003:android:e80f4b0b414d8862f0deae",
+        "android_client_info": {
+          "package_name": "com.example.writeread_admin_panel"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "436595745003-m62cc6r5gih9knhn4oveec93o548sj99.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDkzabN2ljGa0WKDOX3N3peu0qIDUng_mA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "436595745003-m62cc6r5gih9knhn4oveec93o548sj99.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "436595745003-vqjmn6pueljo1dqo550q32ob9iopu643.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.comics"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

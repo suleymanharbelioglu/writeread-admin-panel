@@ -5,6 +5,7 @@ import 'package:writeread_admin_panel/core/configs/theme/app_colors.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_entity.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/current_comic_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/page/comic.dart';
+import 'package:writeread_admin_panel/presentation/home/bloc/comics_cubit.dart';
 
 class ComicCard extends StatelessWidget {
   const ComicCard({super.key, required this.comic});
@@ -22,7 +23,11 @@ class ComicCard extends StatelessWidget {
         context.read<CurrentComicCubit>().setComic(comic);
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const ComicPage()),
-        );
+        ).then((value) {
+          if (value == true) {
+            context.read<ComicsCubit>().loadComics();
+          }
+        });
       },
       child: Container(
         decoration: BoxDecoration(

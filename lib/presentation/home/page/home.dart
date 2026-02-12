@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:writeread_admin_panel/domain/comic/usecase/add_comic.dart';
 import 'package:writeread_admin_panel/domain/comic/usecase/get_all_comics.dart';
+import 'package:writeread_admin_panel/presentation/add_comic/bloc/add_comic_cubit.dart';
+import 'package:writeread_admin_panel/presentation/add_comic/page/add_comic.dart';
 import 'package:writeread_admin_panel/presentation/home/bloc/comics_cubit.dart';
 import 'package:writeread_admin_panel/presentation/home/bloc/comics_state.dart';
 import 'package:writeread_admin_panel/presentation/home/widget/comic_card.dart';
@@ -16,7 +19,27 @@ class HomePage extends StatelessWidget {
           ComicsCubit(getAllComicsUseCase: sl<GetAllComicsUseCase>())
             ..loadComics(),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Comics')),
+        appBar: AppBar(
+          title: const Text('Comics'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => BlocProvider(
+                      create: (_) => AddComicCubit(
+                        addComicUseCase: sl<AddComicUseCase>(),
+                      ),
+                      child: const AddComicPage(),
+                    ),
+                  ),
+                );
+              },
+              tooltip: 'Add new comic',
+            ),
+          ],
+        ),
         body: BlocBuilder<ComicsCubit, ComicsState>(
           builder: (context, state) {
             if (state is ComicsLoading) {

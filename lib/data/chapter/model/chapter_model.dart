@@ -15,7 +15,7 @@ class ChapterModel {
     required this.pageCount,
     required this.chapterName,
     required this.createdDate,
-    this.isVip = false,
+    this.isVip = true,
   });
 
   Map<String, dynamic> toMap() {

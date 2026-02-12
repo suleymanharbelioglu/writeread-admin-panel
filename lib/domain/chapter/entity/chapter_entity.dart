@@ -14,6 +14,6 @@ class ChapterEntity {
     required this.pageCount,
     required this.chapterName,
     required this.createdDate,
-    this.isVip = false,
+    this.isVip = true,
   });
 }

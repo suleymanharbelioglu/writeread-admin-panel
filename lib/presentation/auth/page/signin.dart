@@ -16,8 +16,8 @@ class SigninPage extends StatefulWidget {
 
 class _SigninPageState extends State<SigninPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'harba.suleyman@gmail.com');
-  final _passwordController = TextEditingController(text: 'cmylmZ.31');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
@@ -42,25 +42,25 @@ class _SigninPageState extends State<SigninPage> {
   void _submit(BuildContext context) {
     if (_formKey.currentState?.validate() ?? false) {
       context.read<SigninCubit>().signIn(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          );
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
     }
   }
 
   void _handleSigninState(BuildContext context, SigninState state) {
     if (state is SigninSuccess) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Signed in successfully')),
-      );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const IsAdminPage()),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Signed in successfully')));
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const IsAdminPage()));
     }
     if (state is SigninError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(state.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(state.message)));
     }
   }
 
@@ -102,15 +102,17 @@ class _SigninPageState extends State<SigninPage> {
                                 ? Icons.visibility
                                 : Icons.visibility_off,
                           ),
-                          onPressed: () =>
-                              setState(() => _obscurePassword = !_obscurePassword),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                         ),
                       ),
                       validator: _validatePassword,
                     ),
                     const SizedBox(height: 24),
                     BlocConsumer<SigninCubit, SigninState>(
-                      listener: (context, state) => _handleSigninState(context, state),
+                      listener: (context, state) =>
+                          _handleSigninState(context, state),
                       builder: (context, state) {
                         final loading = state is SigninLoading;
                         return ElevatedButton(
@@ -119,7 +121,9 @@ class _SigninPageState extends State<SigninPage> {
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Text('Log in'),
                         );

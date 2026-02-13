@@ -1,1 +1,39 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"comics-app-e163a","appId":"1:436595745003:android:e80f4b0b414d8862f0deae","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"comics-app-e163a","configurations":{"android":"1:436595745003:android:e80f4b0b414d8862f0deae","ios":"1:436595745003:ios:e807a30a6372b526f0deae","macos":"1:436595745003:ios:e807a30a6372b526f0deae","web":"1:436595745003:web:3b1dda92ba3faa73f0deae","windows":"1:436595745003:web:6d045199efd83ce7f0deae"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "comics-app-e163a",
+          "appId": "1:436595745003:android:e80f4b0b414d8862f0deae",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "comics-app-e163a",
+          "configurations": {
+            "android": "1:436595745003:android:e80f4b0b414d8862f0deae",
+            "ios": "1:436595745003:ios:e807a30a6372b526f0deae",
+            "macos": "1:436595745003:ios:e807a30a6372b526f0deae",
+            "web": "1:436595745003:web:3b1dda92ba3faa73f0deae",
+            "windows": "1:436595745003:web:6d045199efd83ce7f0deae"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

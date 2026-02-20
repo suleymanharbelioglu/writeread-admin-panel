@@ -8,6 +8,8 @@ import 'package:writeread_admin_panel/presentation/comic/bloc/current_comic_cubi
 import 'package:writeread_admin_panel/presentation/comic/bloc/current_comic_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/delete_chapter_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/delete_chapter_state.dart';
+import 'package:writeread_admin_panel/presentation/comic/bloc/add_chapter_cubit.dart';
+import 'package:writeread_admin_panel/presentation/comic/bloc/add_chapter_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/delete_comic_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/delete_comic_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/edit_chapter_cubit.dart';
@@ -24,25 +26,30 @@ class ComicPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<DeleteComicCubit, DeleteComicState>(
-      listener: _onDeleteComicStateChanged,
-      child: BlocListener<DeleteChapterCubit, DeleteChapterState>(
-        listener: _onDeleteChapterStateChanged,
-        child: BlocListener<EditChapterCubit, EditChapterState>(
-          listener: _onEditChapterStateChanged,
-          child: BlocListener<EditComicCubit, EditComicState>(
-            listener: _onEditComicStateChanged,
-            child: BlocBuilder<CurrentComicCubit, CurrentComicState>(
-            builder: (context, state) {
-              if (state is! CurrentComicSet) {
-                return _buildEmptyState(context);
-              }
-              return _ComicContent(comic: state.comic);
-            },
+    return Stack(
+      children: [
+        BlocListener<DeleteComicCubit, DeleteComicState>(
+          listener: _onDeleteComicStateChanged,
+          child: BlocListener<DeleteChapterCubit, DeleteChapterState>(
+            listener: _onDeleteChapterStateChanged,
+            child: BlocListener<EditChapterCubit, EditChapterState>(
+              listener: _onEditChapterStateChanged,
+              child: BlocListener<EditComicCubit, EditComicState>(
+                listener: _onEditComicStateChanged,
+                child: BlocBuilder<CurrentComicCubit, CurrentComicState>(
+                  builder: (context, state) {
+                    if (state is! CurrentComicSet) {
+                      return _buildEmptyState(context);
+                    }
+                    return _ComicContent(comic: state.comic);
+                  },
+                ),
+              ),
+            ),
           ),
         ),
-      ),
-    ),
+        const _ComicLoadingOverlay(),
+      ],
     );
   }
 
@@ -55,9 +62,9 @@ class ComicPage extends StatelessWidget {
       context.read<CurrentComicCubit>().clear();
       if (context.mounted) Navigator.of(context).pop(true);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Comic deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Comic deleted')));
       }
     } else if (state is DeleteComicFailure) {
       if (Navigator.of(context).canPop()) Navigator.of(context).pop();
@@ -123,6 +130,7 @@ class ComicPage extends StatelessWidget {
           : chapter.pageCount,
       createdDate: chapter.createdDate,
       isVip: state.isVip ?? chapter.isVip,
+      musicUrl: state.musicUrl ?? chapter.musicUrl,
     );
     final newChapters = List<ChapterEntity>.from(comic.chapters);
     newChapters[index] = updatedChapter;
@@ -160,6 +168,7 @@ class ComicPage extends StatelessWidget {
       pageCount: 0,
       createdDate: chapter.createdDate,
       isVip: chapter.isVip,
+      musicUrl: chapter.musicUrl,
     );
     final newChapters = List<ChapterEntity>.from(comic.chapters);
     newChapters[index] = updatedChapter;
@@ -481,6 +490,44 @@ class _ComicContentState extends State<_ComicContent> {
                 ComicDescriptionSection(description: comic.description),
               ComicChaptersSection(comic: comic),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tam ekran loading overlay; comic sayfasındaki bekleme gerektiren işlemler için.
+class _ComicLoadingOverlay extends StatelessWidget {
+  const _ComicLoadingOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    final deleteComicLoading =
+        context.watch<DeleteComicCubit>().state is DeleteComicLoading;
+    final deleteChapterLoading =
+        context.watch<DeleteChapterCubit>().state is DeleteChapterLoading;
+    final editChapterLoading =
+        context.watch<EditChapterCubit>().state is EditChapterLoading;
+    final editComicLoading =
+        context.watch<EditComicCubit>().state is EditComicLoading;
+    final addChapterLoading =
+        context.watch<AddChapterCubit>().state is AddChapterLoading;
+    final isLoading = deleteComicLoading ||
+        deleteChapterLoading ||
+        editChapterLoading ||
+        editComicLoading ||
+        addChapterLoading;
+
+    if (!isLoading) return const SizedBox.shrink();
+
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black54,
+        child: const Center(
+          child: CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 3,
           ),
         ),
       ),

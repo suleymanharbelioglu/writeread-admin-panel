@@ -20,10 +20,11 @@ class AddChapterCubit extends Cubit<AddChapterState> {
     final result = await useCase.call(params: params);
     result.fold(
       (message) => emit(AddChapterFailure(message)),
-      (_) => emit(AddChapterSuccess(
+      (musicUrl) => emit(AddChapterSuccess(
             chapterName: params.chapterName.trim(),
             pageCount: params.imageBytesList.length,
             isVip: params.isVip,
+            musicUrl: musicUrl,
           )),
     );
   }

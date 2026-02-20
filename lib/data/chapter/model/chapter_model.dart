@@ -8,6 +8,8 @@ class ChapterModel {
   final String chapterName; // 🔹 chapter adı
   final Timestamp createdDate;
   final bool isVip; // 🔒 VIP chapter mı?
+  /// Firebase Storage download URL for chapter music (optional).
+  final String? musicUrl;
 
   ChapterModel({
     required this.chapterId,
@@ -16,6 +18,7 @@ class ChapterModel {
     required this.chapterName,
     required this.createdDate,
     this.isVip = true,
+    this.musicUrl,
   });
 
   Map<String, dynamic> toMap() {
@@ -26,6 +29,7 @@ class ChapterModel {
       "chapterName": chapterName,
       "createdDate": createdDate,
       "isVip": isVip,
+      if (musicUrl != null && musicUrl!.isNotEmpty) "musicUrl": musicUrl,
     };
   }
 
@@ -37,6 +41,7 @@ class ChapterModel {
       chapterName: map["chapterName"],
       createdDate: map["createdDate"],
       isVip: (map["isVip"] ?? false) as bool,
+      musicUrl: map["musicUrl"] as String?,
     );
   }
 }
@@ -51,6 +56,7 @@ extension ChapterXModel on ChapterModel {
       chapterName: chapterName,
       createdDate: createdDate,
       isVip: isVip,
+      musicUrl: musicUrl,
     );
   }
 }
@@ -65,6 +71,7 @@ extension ChapterXEntity on ChapterEntity {
       chapterName: chapterName,
       createdDate: createdDate,
       isVip: isVip,
+      musicUrl: musicUrl,
     );
   }
 }

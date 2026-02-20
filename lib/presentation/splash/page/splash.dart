@@ -22,7 +22,7 @@ class SplashPage extends StatelessWidget {
         backgroundColor: AppColors.primary,
         body: Center(
           child: Text(
-            'Writeread',
+            'writeread admin panel',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,

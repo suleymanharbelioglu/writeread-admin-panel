@@ -10,32 +10,36 @@ class ChapterRepositoryImpl extends ChapterRepository {
   }
 
   @override
-  Future<Either<String, void>> addChapter(
+  Future<Either<String, String?>> addChapter(
     String comicId,
     String chapterName,
     List<List<int>> imageBytesList, {
     bool isVip = true,
+    List<int>? musicBytes,
   }) async {
     return sl<ChapterFirebaseService>().addChapter(
       comicId,
       chapterName,
       imageBytesList,
       isVip: isVip,
+      musicBytes: musicBytes,
     );
   }
 
   @override
-  Future<Either<String, void>> updateChapter(
+  Future<Either<String, String?>> updateChapter(
     String comicId,
     String chapterId, {
     bool? isVip,
     List<List<int>>? additionalImageBytesList,
+    List<int>? musicBytes,
   }) async {
     return sl<ChapterFirebaseService>().updateChapter(
       comicId,
       chapterId,
       isVip: isVip,
       additionalImageBytesList: additionalImageBytesList,
+      musicBytes: musicBytes,
     );
   }
 

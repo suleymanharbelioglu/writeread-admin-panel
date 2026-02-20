@@ -16,8 +16,8 @@ class SigninPage extends StatefulWidget {
 
 class _SigninPageState extends State<SigninPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _emailController = TextEditingController(text: 'harba.suleyman@gmail.com');
+  final _passwordController = TextEditingController(text: 'cmylmZ.31');
   bool _obscurePassword = true;
 
   @override

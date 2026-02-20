@@ -6,10 +6,13 @@ class UpdateChapterParams {
     required this.chapterId,
     this.isVip,
     this.additionalImageBytesList,
+    this.musicBytes,
   });
 
   final String comicId;
   final String chapterId;
   final bool? isVip;
   final List<List<int>>? additionalImageBytesList;
+  /// New chapter music; uploads to Storage and sets musicUrl. Replaces existing music (old file deleted).
+  final List<int>? musicBytes;
 }

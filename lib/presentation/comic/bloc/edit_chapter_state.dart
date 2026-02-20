@@ -16,12 +16,16 @@ final class EditChapterSuccess extends EditChapterState {
     required this.chapterId,
     this.isVip,
     this.addedImageCount,
+    this.musicUrl,
   });
   final String chapterId;
   final bool? isVip;
 
   /// Number of images added (so UI can compute new pageCount = current + this).
   final int? addedImageCount;
+
+  /// New chapter music URL when music was updated.
+  final String? musicUrl;
 }
 
 final class EditChapterFailure extends EditChapterState {

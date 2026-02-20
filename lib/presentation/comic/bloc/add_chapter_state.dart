@@ -15,10 +15,13 @@ final class AddChapterSuccess extends AddChapterState {
     required this.chapterName,
     required this.pageCount,
     this.isVip = true,
+    this.musicUrl,
   });
   final String chapterName;
   final int pageCount;
   final bool isVip;
+  /// Firebase Storage URL for chapter music when music was uploaded.
+  final String? musicUrl;
 }
 
 final class AddChapterFailure extends AddChapterState {

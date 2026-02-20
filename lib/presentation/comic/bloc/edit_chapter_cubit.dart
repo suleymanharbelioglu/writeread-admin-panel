@@ -26,10 +26,11 @@ class EditChapterCubit extends Cubit<EditChapterState> {
     final result = await useCase.call(params: params);
     result.fold(
       (message) => emit(EditChapterFailure(message)),
-      (_) => emit(EditChapterSuccess(
+      (musicUrl) => emit(EditChapterSuccess(
             chapterId: params.chapterId,
             isVip: params.isVip,
             addedImageCount: params.additionalImageBytesList?.length,
+            musicUrl: musicUrl,
           )),
     );
   }

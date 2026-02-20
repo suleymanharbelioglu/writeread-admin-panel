@@ -23,6 +23,7 @@ class _AddChapterDialogState extends State<AddChapterDialog> {
   late final TextEditingController _nameController;
   bool _isVip = true;
   List<PlatformFile> _pickedFiles = [];
+  PlatformFile? _pickedMusicFile;
 
   @override
   void initState() {
@@ -51,6 +52,17 @@ class _AddChapterDialogState extends State<AddChapterDialog> {
     });
   }
 
+  Future<void> _pickMusic() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.audio,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.single;
+    if (file.bytes == null || file.bytes!.lengthInBytes == 0) return;
+    setState(() => _pickedMusicFile = file);
+  }
+
   void _submit() {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
@@ -68,11 +80,15 @@ class _AddChapterDialogState extends State<AddChapterDialog> {
     final imageBytesList = _pickedFiles
         .map((f) => f.bytes!.buffer.asUint8List().toList())
         .toList();
+    final musicBytes = _pickedMusicFile?.bytes != null
+        ? _pickedMusicFile!.bytes!.buffer.asUint8List().toList()
+        : null;
     context.read<AddChapterCubit>().addChapter(AddChapterParams(
           comicId: widget.comic.comicId,
           chapterName: name,
           imageBytesList: imageBytesList,
           isVip: _isVip,
+          musicBytes: musicBytes,
         ));
   }
 
@@ -135,6 +151,14 @@ class _AddChapterDialogState extends State<AddChapterDialog> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _pickMusic,
+                icon: const Icon(Icons.music_note),
+                label: Text(_pickedMusicFile == null
+                    ? 'Pick chapter music (optional)'
+                    : 'Music: ${_pickedMusicFile!.name}'),
+              ),
             ],
           ),
         ),
@@ -175,6 +199,7 @@ class _AddChapterDialogState extends State<AddChapterDialog> {
       pageCount: state.pageCount,
       createdDate: Timestamp.now(),
       isVip: state.isVip,
+      musicUrl: state.musicUrl,
     );
     final updatedChapters = [...comic.chapters, newChapter];
     context.read<CurrentComicCubit>().setComic(ComicEntity(

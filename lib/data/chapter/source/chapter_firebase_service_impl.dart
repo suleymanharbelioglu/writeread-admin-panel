@@ -105,11 +105,12 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
   }
 
   @override
-  Future<Either<String, void>> addChapter(
+  Future<Either<String, String?>> addChapter(
     String comicId,
     String chapterName,
     List<List<int>> imageBytesList, {
     bool isVip = true,
+    List<int>? musicBytes,
   }) async {
     if (imageBytesList.isEmpty) {
       return const Left('Add at least one image');
@@ -133,10 +134,30 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
         'pageCount': imageBytesList.length,
         'isVip': isVip,
       };
-      // Update Firestore first so data is saved before Storage uploads.
-      // Storage uploads can trigger platform-channel callbacks on a non-main
-      // thread on Windows, which can crash the app; doing Firestore first
-      // ensures the chapter is in the DB even if that happens.
+
+      String? resultMusicUrl;
+      // Upload music to Storage first so we can store the URL in Firestore.
+      if (musicBytes != null && musicBytes.isNotEmpty) {
+        final folderRef = FirebaseStorage.instance
+            .ref()
+            .child(_storageComicsPath)
+            .child(comicId)
+            .child(newChapterId);
+        final musicRef = folderRef.child('music.mp3');
+        await _runOnPlatformThread(
+          () => musicRef.putData(
+            Uint8List.fromList(musicBytes),
+            SettableMetadata(contentType: 'audio/mpeg'),
+          ),
+        );
+        final musicUrl = await _runOnPlatformThread(
+          () => musicRef.getDownloadURL(),
+        );
+        newChapter['musicUrl'] = musicUrl;
+        resultMusicUrl = musicUrl;
+      }
+
+      // Update Firestore so chapter (with optional musicUrl) is saved.
       await docRef.update({
         'chapters': FieldValue.arrayUnion([newChapter]),
         'chapterCount': FieldValue.increment(1),
@@ -161,7 +182,7 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
           ),
         );
       }
-      return const Right(null);
+      return Right(resultMusicUrl);
     } on FirebaseException catch (e) {
       return Left(
         'Storage/Firestore: ${e.code} – ${e.message ?? e.toString()}',
@@ -172,11 +193,12 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
   }
 
   @override
-  Future<Either<String, void>> updateChapter(
+  Future<Either<String, String?>> updateChapter(
     String comicId,
     String chapterId, {
     bool? isVip,
     List<List<int>>? additionalImageBytesList,
+    List<int>? musicBytes,
   }) async {
     try {
       final docRef = FirebaseFirestore.instance
@@ -197,13 +219,36 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
       if (index < 0) return const Left('Chapter not found');
       final chapter = Map<String, dynamic>.from(chaptersList[index]);
       if (isVip != null) chapter['isVip'] = isVip;
+
+      final folderRef = FirebaseStorage.instance
+          .ref()
+          .child(_storageComicsPath)
+          .child(comicId)
+          .child(chapterId);
+
+      String? resultMusicUrl;
+      if (musicBytes != null && musicBytes.isNotEmpty) {
+        final musicRef = folderRef.child('music.mp3');
+        try {
+          await _runOnPlatformThread(() => musicRef.delete());
+        } on FirebaseException catch (e) {
+          if (e.code != 'object-not-found') rethrow;
+        }
+        await _runOnPlatformThread(
+          () => musicRef.putData(
+            Uint8List.fromList(musicBytes),
+            SettableMetadata(contentType: 'audio/mpeg'),
+          ),
+        );
+        final musicUrl = await _runOnPlatformThread(
+          () => musicRef.getDownloadURL(),
+        );
+        chapter['musicUrl'] = musicUrl;
+        resultMusicUrl = musicUrl;
+      }
+
       int newPageCount = (chapter['pageCount'] as num?)?.toInt() ?? 0;
       if (additionalImageBytesList != null && additionalImageBytesList.isNotEmpty) {
-        final folderRef = FirebaseStorage.instance
-            .ref()
-            .child(_storageComicsPath)
-            .child(comicId)
-            .child(chapterId);
         for (var i = 0; i < additionalImageBytesList.length; i++) {
           final pageNum = newPageCount + i + 1;
           final pageRef = folderRef.child('$pageNum.jpeg');
@@ -222,7 +267,7 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
       }
       chaptersList[index] = chapter;
       await docRef.update({'chapters': chaptersList});
-      return const Right(null);
+      return Right(resultMusicUrl);
     } on FirebaseException catch (e) {
       return Left(
         'Update chapter: ${e.code} – ${e.message ?? e.toString()}',

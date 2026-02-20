@@ -1,3 +1,4 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,6 +25,86 @@ class ChapterTile extends StatefulWidget {
 
 class _ChapterTileState extends State<ChapterTile> {
   bool _expanded = false;
+  AudioPlayer? _audioPlayer;
+  bool _isPlaying = false;
+
+  @override
+  void dispose() {
+    _audioPlayer?.stop();
+    _audioPlayer?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _togglePlayStop() async {
+    final chapter = widget.chapter;
+    final url = chapter.musicUrl;
+    if (url == null || url.isEmpty) return;
+    if (_isPlaying) {
+      await _audioPlayer?.stop();
+      if (mounted) setState(() => _isPlaying = false);
+      return;
+    }
+    if (_audioPlayer == null) {
+      _audioPlayer = AudioPlayer();
+      _audioPlayer!.onPlayerComplete.listen((_) {
+        if (mounted) setState(() => _isPlaying = false);
+      });
+    }
+    await _audioPlayer!.setSource(UrlSource(url));
+    await _audioPlayer!.resume();
+    if (mounted) setState(() => _isPlaying = true);
+  }
+
+  Future<void> _pickAndUploadMusic() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.audio,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.single;
+    if (file.bytes == null || file.bytes!.lengthInBytes == 0) return;
+    if (!mounted) return;
+    final bytes = file.bytes!.buffer.asUint8List().toList();
+    context.read<EditChapterCubit>().updateChapter(UpdateChapterParams(
+          comicId: widget.comicId,
+          chapterId: widget.chapter.chapterId,
+          musicBytes: bytes,
+        ));
+  }
+
+  Widget _buildMusicRow(
+    BuildContext context,
+    ChapterEntity chapter,
+    bool loading,
+  ) {
+    final hasMusic = chapter.musicUrl != null && chapter.musicUrl!.isNotEmpty;
+    return Row(
+      children: [
+        if (hasMusic) ...[
+          const Icon(Icons.music_note, size: 20),
+          const SizedBox(width: 8),
+          const Text('music.mp3', style: TextStyle(fontSize: 14)),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: loading ? null : _togglePlayStop,
+            icon: Icon(_isPlaying ? Icons.stop : Icons.play_arrow),
+            tooltip: _isPlaying ? 'Durdur' : 'Oynat',
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            onPressed: loading ? null : _pickAndUploadMusic,
+            icon: const Icon(Icons.upload_file, size: 18),
+            label: const Text('Müzik değiştir'),
+          ),
+        ] else
+          OutlinedButton.icon(
+            onPressed: loading ? null : _pickAndUploadMusic,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Müzik ekle'),
+          ),
+      ],
+    );
+  }
 
   Future<void> _addMoreImages() async {
     final result = await FilePicker.platform.pickFiles(
@@ -80,83 +161,90 @@ class _ChapterTileState extends State<ChapterTile> {
                     builder: (context, editState) {
                       final loading = editState is EditChapterLoading &&
                           editState.chapterId == chapter.chapterId;
-                      return Row(
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(
-                            width: 180,
-                            child: SwitchListTile(
-                              value: chapter.isVip,
-                              onChanged: loading
-                                  ? null
-                                  : (value) {
-                                      context.read<EditChapterCubit>().updateChapter(
-                                            UpdateChapterParams(
-                                              comicId: widget.comicId,
-                                              chapterId: chapter.chapterId,
-                                              isVip: value,
-                                            ),
-                                          );
-                                    },
-                              title: const Text('VIP'),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            onPressed: loading ? null : _addMoreImages,
-                            icon: const Icon(Icons.add_photo_alternate, size: 18),
-                            label: const Text('Add more images'),
-                          ),
-                          if (imageUrls.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              onPressed: loading
-                                  ? null
-                                  : () {
-                                      context.read<EditChapterCubit>().deleteAllChapterImages(
-                                            widget.comicId,
-                                            chapter.chapterId,
-                                          );
-                                    },
-                              icon: const Icon(Icons.delete_forever, size: 18),
-                              label: const Text('Delete All Images'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Theme.of(context).colorScheme.error,
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: 180,
+                                child: SwitchListTile(
+                                  value: chapter.isVip,
+                                  onChanged: loading
+                                      ? null
+                                      : (value) {
+                                          context.read<EditChapterCubit>().updateChapter(
+                                                UpdateChapterParams(
+                                                  comicId: widget.comicId,
+                                                  chapterId: chapter.chapterId,
+                                                  isVip: value,
+                                                ),
+                                              );
+                                        },
+                                  title: const Text('VIP'),
+                                  contentPadding: EdgeInsets.zero,
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: loading ? null : _addMoreImages,
+                                icon: const Icon(Icons.add_photo_alternate, size: 18),
+                                label: const Text('Add more images'),
+                              ),
+                              if (imageUrls.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                OutlinedButton.icon(
+                                  onPressed: loading
+                                      ? null
+                                      : () {
+                                          context.read<EditChapterCubit>().deleteAllChapterImages(
+                                                widget.comicId,
+                                                chapter.chapterId,
+                                              );
+                                        },
+                                  icon: const Icon(Icons.delete_forever, size: 18),
+                                  label: const Text('Delete All Images'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Theme.of(context).colorScheme.error,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _buildMusicRow(context, chapter, loading),
+                          const SizedBox(height: 12),
+                          if (imageUrls.isEmpty)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: Text('No image yet'),
+                              ),
+                            )
+                          else
+                            ...imageUrls.asMap().entries.map((e) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Page ${e.key + 1}:',
+                                      style: Theme.of(context).textTheme.labelSmall,
+                                    ),
+                                    SelectableText(
+                                      e.value,
+                                      style: Theme.of(context).textTheme.bodySmall
+                                          ?.copyWith(fontFamily: 'monospace'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
                         ],
                       );
                     },
                   ),
-                  const SizedBox(height: 12),
-                  if (imageUrls.isEmpty)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Text('No image yet'),
-                      ),
-                    )
-                  else
-                    ...imageUrls.asMap().entries.map((e) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Page ${e.key + 1}:',
-                              style: Theme.of(context).textTheme.labelSmall,
-                            ),
-                            SelectableText(
-                              e.value,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(fontFamily: 'monospace'),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
                 ],
               ),
             ),

@@ -4,9 +4,9 @@ import 'package:writeread_admin_panel/domain/chapter/repository/chapter.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecase/add_chapter_params.dart';
 import 'package:writeread_admin_panel/service_locator.dart';
 
-class AddChapterUseCase implements UseCase<Either<String, void>, AddChapterParams> {
+class AddChapterUseCase implements UseCase<Either<String, String?>, AddChapterParams> {
   @override
-  Future<Either<String, void>> call({AddChapterParams? params}) async {
+  Future<Either<String, String?>> call({AddChapterParams? params}) async {
     if (params == null) {
       return const Left('Add chapter params required');
     }
@@ -24,6 +24,7 @@ class AddChapterUseCase implements UseCase<Either<String, void>, AddChapterParam
       params.chapterName.trim(),
       params.imageBytesList,
       isVip: params.isVip,
+      musicBytes: params.musicBytes,
     );
   }
 }

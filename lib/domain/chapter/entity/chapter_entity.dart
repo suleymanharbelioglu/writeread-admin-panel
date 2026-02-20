@@ -7,6 +7,8 @@ class ChapterEntity {
   final String chapterName; // 🔹 chapter adı
   final Timestamp createdDate;
   final bool isVip; // 🔒 VIP chapter mı?
+  /// Firebase Storage download URL for chapter music (optional).
+  final String? musicUrl;
 
   ChapterEntity({
     required this.chapterId,
@@ -15,5 +17,6 @@ class ChapterEntity {
     required this.chapterName,
     required this.createdDate,
     this.isVip = true,
+    this.musicUrl,
   });
 }

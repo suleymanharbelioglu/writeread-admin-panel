@@ -4,6 +4,9 @@ import 'package:writeread_admin_panel/data/auth/source/auth_firebase_service.dar
 import 'package:writeread_admin_panel/data/chapter/repository/chapter_repository_impl.dart';
 import 'package:writeread_admin_panel/data/chapter/source/chapter_firebase_service.dart';
 import 'package:writeread_admin_panel/data/chapter/source/chapter_firebase_service_impl.dart';
+import 'package:writeread_admin_panel/data/comment/repository/comment_repository_impl.dart';
+import 'package:writeread_admin_panel/data/comment/source/comment_firebase_service.dart';
+import 'package:writeread_admin_panel/data/comment/source/comment_firebase_service_impl.dart';
 import 'package:writeread_admin_panel/data/comic/repository/comic_repository_impl.dart';
 import 'package:writeread_admin_panel/data/comic/source/comic_firebase_service.dart';
 import 'package:writeread_admin_panel/data/comic/source/comic_firebase_service_impl.dart';
@@ -16,6 +19,10 @@ import 'package:writeread_admin_panel/domain/chapter/usecase/add_chapter.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecase/delete_all_chapter_images.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecase/delete_last_chapter.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecase/update_chapter.dart';
+import 'package:writeread_admin_panel/domain/comment/repository/comment.dart';
+import 'package:writeread_admin_panel/domain/comment/usecase/delete_comment.dart';
+import 'package:writeread_admin_panel/domain/comment/usecase/get_chapter_comments.dart';
+import 'package:writeread_admin_panel/domain/comment/usecase/get_comic_comments.dart';
 import 'package:writeread_admin_panel/domain/comic/repository/comic.dart';
 import 'package:writeread_admin_panel/domain/comic/usecase/add_comic.dart';
 import 'package:writeread_admin_panel/domain/comic/usecase/delete_comic.dart';
@@ -50,4 +57,11 @@ Future<void> initializeDependencies() async {
   sl.registerSingleton<DeleteAllChapterImagesUseCase>(
     DeleteAllChapterImagesUseCase(),
   );
+
+  // Comments
+  sl.registerSingleton<CommentFirebaseService>(CommentFirebaseServiceImpl());
+  sl.registerSingleton<CommentRepository>(CommentRepositoryImpl());
+  sl.registerSingleton<GetComicCommentsUseCase>(GetComicCommentsUseCase());
+  sl.registerSingleton<GetChapterCommentsUseCase>(GetChapterCommentsUseCase());
+  sl.registerSingleton<DeleteCommentUseCase>(DeleteCommentUseCase());
 }

@@ -19,6 +19,7 @@ class _AddComicPageState extends State<AddComicPage> {
   final _descriptionController = TextEditingController();
   final _categoryNameController = TextEditingController();
   List<int>? _imageBytes;
+  bool _isSensitive = false;
 
   @override
   void dispose() {
@@ -53,6 +54,7 @@ class _AddComicPageState extends State<AddComicPage> {
             title: title,
             description: _descriptionController.text.trim(),
             categoryName: _categoryNameController.text.trim(),
+            isSensitive: _isSensitive,
             imageBytes: _imageBytes,
           ),
         );
@@ -135,6 +137,14 @@ class _AddComicPageState extends State<AddComicPage> {
                 ),
               ),
               const SizedBox(height: 16),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Sensitive content'),
+                subtitle: const Text('Mark this comic as sensitive/explicit'),
+                value: _isSensitive,
+                onChanged: (v) => setState(() => _isSensitive = v),
+              ),
+              const SizedBox(height: 8),
               BlocBuilder<AddComicCubit, AddComicState>(
                 buildWhen: (prev, curr) =>
                     curr is AddComicLoading || curr is AddComicInitial,

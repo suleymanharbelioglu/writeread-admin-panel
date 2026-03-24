@@ -7,6 +7,7 @@ class ComicModel {
   final String title;
   final String description;
   final String image;
+  final bool isSensitive;
   final int likeCount;
   final int readCount;
   final int chapterCount; // 🔥 eklendi
@@ -20,6 +21,7 @@ class ComicModel {
     required this.title,
     required this.description,
     required this.image,
+    required this.isSensitive,
     required this.likeCount,
     required this.readCount,
     required this.chapterCount, // 🔥 constructor
@@ -35,6 +37,7 @@ class ComicModel {
       "title": title,
       "description": description,
       "image": image,
+      "isSensitive": isSensitive,
       "likeCount": likeCount,
       "readCount": readCount,
       "chapterCount": chapterCount, // 🔥 map
@@ -51,6 +54,7 @@ class ComicModel {
       title: map["title"] as String,
       description: map["description"] as String,
       image: map["image"] as String,
+      isSensitive: map["isSensitive"] as bool? ?? false,
       likeCount: map["likeCount"] as int,
       readCount: map["readCount"] as int? ?? 0,
       chapterCount: map["chapterCount"] as int, // 🔥 fromMap
@@ -74,6 +78,7 @@ extension ComicXModel on ComicModel {
       title: title,
       description: description,
       image: image,
+      isSensitive: isSensitive,
       likeCount: likeCount,
       readCount: readCount,
       chapterCount: chapterCount, // 🔥
@@ -93,6 +98,7 @@ extension ComicXEntity on ComicEntity {
       title: title,
       description: description,
       image: image,
+      isSensitive: isSensitive,
       likeCount: likeCount,
       readCount: readCount,
       chapterCount: chapterCount, // 🔥

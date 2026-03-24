@@ -17,12 +17,14 @@ class ComicRepositoryImpl extends ComicRepository {
     String title,
     String description,
     String categoryName, {
+    required bool isSensitive,
     List<int>? imageBytes,
   }) async {
     final result = await sl<ComicFirebaseService>().addComic(
       title,
       description,
       categoryName,
+      isSensitive: isSensitive,
       imageBytes: imageBytes,
     );
     return result.map((model) => model.toEntity());
@@ -33,6 +35,7 @@ class ComicRepositoryImpl extends ComicRepository {
     String comicId, {
     required String title,
     required String description,
+    required bool isSensitive,
     String? oldImageFilename,
     List<int>? newImageBytes,
   }) async {
@@ -40,6 +43,7 @@ class ComicRepositoryImpl extends ComicRepository {
       comicId,
       title: title,
       description: description,
+      isSensitive: isSensitive,
       oldImageFilename: oldImageFilename,
       newImageBytes: newImageBytes,
     );

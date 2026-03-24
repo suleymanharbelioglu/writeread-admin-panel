@@ -6,16 +6,19 @@ import 'package:writeread_admin_panel/domain/chapter/entity/chapter_entity.dart'
 import 'package:writeread_admin_panel/domain/chapter/usecase/update_chapter_params.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/edit_chapter_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/edit_chapter_state.dart';
+import 'package:writeread_admin_panel/presentation/comment/widget/comments_dialog.dart';
 
 class ChapterTile extends StatefulWidget {
   const ChapterTile({
     super.key,
     required this.comicId,
+    required this.comicTitle,
     required this.chapter,
     required this.imageUrls,
   });
 
   final String comicId;
+  final String comicTitle;
   final ChapterEntity chapter;
   final List<String> imageUrls;
 
@@ -135,7 +138,31 @@ class _ChapterTileState extends State<ChapterTile> {
       child: Column(
         children: [
           ListTile(
-            title: Text(chapter.chapterName),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    chapter.chapterName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (dialogContext) => CommentsDialog.chapter(
+                      comicId: widget.comicId,
+                      comicTitle: widget.comicTitle,
+                      chapterId: chapter.chapterId,
+                      chapterName: chapter.chapterName,
+                    ),
+                  ),
+                  icon: const Icon(Icons.comment_outlined, size: 18),
+                  label: const Text('Comments'),
+                ),
+              ],
+            ),
             subtitle: Text(
               '${chapter.pageCount} pages • ${chapter.isVip ? "VIP" : "Free"}',
               style: Theme.of(context).textTheme.bodySmall,

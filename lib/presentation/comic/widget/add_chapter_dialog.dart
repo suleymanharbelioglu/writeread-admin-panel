@@ -207,6 +207,7 @@ class _AddChapterDialogState extends State<AddChapterDialog> {
           title: comic.title,
           description: comic.description,
           image: comic.image,
+          isSensitive: comic.isSensitive,
           likeCount: comic.likeCount,
           readCount: comic.readCount,
           chapterCount: updatedChapters.length,

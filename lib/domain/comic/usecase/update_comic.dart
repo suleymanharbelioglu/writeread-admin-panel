@@ -14,6 +14,7 @@ class UpdateComicUseCase implements UseCase<Either<String, void>, UpdateComicPar
       params.comicId,
       title: params.title.trim(),
       description: params.description.trim(),
+      isSensitive: params.isSensitive,
       oldImageFilename: params.oldImageFilename,
       newImageBytes: params.newImageBytes,
     );

@@ -12,6 +12,8 @@ import 'package:writeread_admin_panel/data/comic/source/comic_firebase_service.d
 class ComicFirebaseServiceImpl extends ComicFirebaseService {
   static const String _comicsCollection = 'Comics';
   static const String _storageComicsPath = 'Comics';
+  static const String _comicCommentsCollection = 'ComicComments';
+  static const String _chapterCommentsCollection = 'ChapterComments';
 
   /// Set to true to temporarily skip Storage upload (debug freeze).
   static const bool _skipStorageUploadForDebug = false;
@@ -56,6 +58,7 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
     String title,
     String description,
     String categoryName, {
+    required bool isSensitive,
     List<int>? imageBytes,
   }) async {
     try {
@@ -101,9 +104,11 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
       final categoryTrimmed = categoryName.trim();
       final now = Timestamp.now();
       final data = <String, dynamic>{
+        'comicId': comicId,
         'title': title.trim(),
         'description': description.trim(),
         'image': imageFilename,
+        'isSensitive': isSensitive,
         'likeCount': 0,
         'readCount': 0,
         'chapterCount': 0,
@@ -117,9 +122,7 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
       print('SET DONE');
 
       print('MODEL BUILD START');
-      final forModel = Map<String, dynamic>.from(data);
-      forModel['comicId'] = comicId;
-      final model = ComicModel.fromMap(forModel);
+      final model = ComicModel.fromMap(data);
       print('MODEL BUILD DONE');
       return Right(model);
     } on FirebaseException catch (e, stackTrace) {
@@ -138,6 +141,7 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
     String comicId, {
     required String title,
     required String description,
+    required bool isSensitive,
     String? oldImageFilename,
     List<int>? newImageBytes,
   }) async {
@@ -169,6 +173,7 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
       await docRef.update({
         'title': title.trim(),
         'description': description.trim(),
+        'isSensitive': isSensitive,
         if (newImageFilename != null) 'image': newImageFilename,
       });
       return const Right(null);
@@ -191,6 +196,34 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
     }
   }
 
+  /// Deletes documents from a query in chunks to avoid Firestore write limits.
+  Future<void> _deleteQueryInBatches(
+    Query<Map<String, dynamic>> query, {
+    int batchSize = 400,
+  }) async {
+    while (true) {
+      final snapshot = await query.limit(batchSize).get();
+      if (snapshot.docs.isEmpty) return;
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      if (snapshot.docs.length < batchSize) return;
+    }
+  }
+
+  Future<void> _deleteComicComments(String comicId) async {
+    final comicQuery = FirebaseFirestore.instance
+        .collection(_comicCommentsCollection)
+        .where('comicId', isEqualTo: comicId);
+    final chapterQuery = FirebaseFirestore.instance
+        .collection(_chapterCommentsCollection)
+        .where('comicId', isEqualTo: comicId);
+    await _deleteQueryInBatches(comicQuery);
+    await _deleteQueryInBatches(chapterQuery);
+  }
+
   /// Deletes the comic: comic image and chapter folder on Storage, and Comics/{comicId} doc on database.
   /// Aligned with [ImageDisplayHelper]:
   /// - Comic image URL → Storage: Comics/{image filename}. Delete that file.
@@ -206,6 +239,9 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
       final storageRef = FirebaseStorage.instance.ref().child(
         _storageComicsPath,
       );
+
+      // Delete all comments related to this comic (both comic-level and chapter-level).
+      await _deleteComicComments(comicId);
 
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;

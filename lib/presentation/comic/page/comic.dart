@@ -20,6 +20,7 @@ import 'package:writeread_admin_panel/presentation/comic/widget/comic_chapters_s
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_description_section.dart';
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_editable_header_section.dart';
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_header_section.dart';
+import 'package:writeread_admin_panel/presentation/comment/widget/comments_dialog.dart';
 
 class ComicPage extends StatelessWidget {
   const ComicPage({super.key});
@@ -140,6 +141,7 @@ class ComicPage extends StatelessWidget {
         title: comic.title,
         description: comic.description,
         image: comic.image,
+        isSensitive: comic.isSensitive,
         likeCount: comic.likeCount,
         readCount: comic.readCount,
         chapterCount: comic.chapterCount,
@@ -178,6 +180,7 @@ class ComicPage extends StatelessWidget {
         title: comic.title,
         description: comic.description,
         image: comic.image,
+        isSensitive: comic.isSensitive,
         likeCount: comic.likeCount,
         readCount: comic.readCount,
         chapterCount: comic.chapterCount,
@@ -246,6 +249,7 @@ class ComicPage extends StatelessWidget {
         title: comic.title,
         description: comic.description,
         image: comic.image,
+        isSensitive: comic.isSensitive,
         likeCount: comic.likeCount,
         readCount: comic.readCount,
         chapterCount: newChapters.length,
@@ -279,6 +283,7 @@ class _ComicContentState extends State<_ComicContent> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   List<int>? _newImageBytes;
+  late bool _isSensitive;
 
   @override
   void initState() {
@@ -287,6 +292,7 @@ class _ComicContentState extends State<_ComicContent> {
     _descriptionController = TextEditingController(
       text: widget.comic.description,
     );
+    _isSensitive = widget.comic.isSensitive;
   }
 
   @override
@@ -295,6 +301,7 @@ class _ComicContentState extends State<_ComicContent> {
     if (oldWidget.comic.comicId != widget.comic.comicId) {
       _titleController.text = widget.comic.title;
       _descriptionController.text = widget.comic.description;
+      _isSensitive = widget.comic.isSensitive;
       _newImageBytes = null;
       _isEditing = false;
     }
@@ -312,6 +319,7 @@ class _ComicContentState extends State<_ComicContent> {
       _isEditing = true;
       _titleController.text = widget.comic.title;
       _descriptionController.text = widget.comic.description;
+      _isSensitive = widget.comic.isSensitive;
       _newImageBytes = null;
     });
   }
@@ -321,6 +329,7 @@ class _ComicContentState extends State<_ComicContent> {
       _isEditing = false;
       _titleController.text = widget.comic.title;
       _descriptionController.text = widget.comic.description;
+      _isSensitive = widget.comic.isSensitive;
       _newImageBytes = null;
     });
   }
@@ -352,7 +361,7 @@ class _ComicContentState extends State<_ComicContent> {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const PopScope(
+      builder: (dialogContext) => const PopScope(
         canPop: false,
         child: Center(child: CircularProgressIndicator()),
       ),
@@ -374,6 +383,7 @@ class _ComicContentState extends State<_ComicContent> {
         comicId: widget.comic.comicId,
         title: title,
         description: _descriptionController.text.trim(),
+        isSensitive: _isSensitive,
         oldImageFilename: widget.comic.image.isNotEmpty
             ? widget.comic.image
             : null,
@@ -393,6 +403,7 @@ class _ComicContentState extends State<_ComicContent> {
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         image: newImage,
+        isSensitive: _isSensitive,
         likeCount: comic.likeCount,
         readCount: comic.readCount,
         chapterCount: comic.chapterCount,
@@ -473,17 +484,30 @@ class _ComicContentState extends State<_ComicContent> {
                 )
               else
                 ComicHeaderSection(comic: comic, imageUrl: imageUrl),
+              if (!_isEditing) _CommentsActions(comic: comic),
               if (_isEditing)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TextField(
-                    controller: _descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Description',
-                      border: OutlineInputBorder(),
-                      alignLabelWithHint: true,
-                    ),
-                    maxLines: 4,
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _descriptionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Description',
+                          border: OutlineInputBorder(),
+                          alignLabelWithHint: true,
+                        ),
+                        maxLines: 4,
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Sensitive content'),
+                        subtitle: const Text('Mark this comic as sensitive/explicit'),
+                        value: _isSensitive,
+                        onChanged: (v) => setState(() => _isSensitive = v),
+                      ),
+                    ],
                   ),
                 )
               else
@@ -492,6 +516,40 @@ class _ComicContentState extends State<_ComicContent> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CommentsActions extends StatelessWidget {
+  const _CommentsActions({required this.comic});
+
+  final ComicEntity comic;
+
+  Future<void> _openComicComments(BuildContext context) async {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => CommentsDialog.comic(
+        comicId: comic.comicId,
+        comicTitle: comic.title,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          FilledButton.tonalIcon(
+            onPressed: () => _openComicComments(context),
+            icon: const Icon(Icons.comment_outlined),
+            label: const Text('Comic Comments'),
+          ),
+        ],
       ),
     );
   }

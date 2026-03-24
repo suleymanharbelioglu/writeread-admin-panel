@@ -9,6 +9,7 @@ abstract class ComicFirebaseService {
     String title,
     String description,
     String categoryName, {
+    required bool isSensitive,
     List<int>? imageBytes,
   });
 
@@ -19,6 +20,7 @@ abstract class ComicFirebaseService {
     String comicId, {
     required String title,
     required String description,
+    required bool isSensitive,
     String? oldImageFilename,
     List<int>? newImageBytes,
   });

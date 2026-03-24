@@ -41,6 +41,10 @@ class ComicHeaderSection extends StatelessWidget {
                 ComicInfoRow(label: 'Likes', value: comic.likeCount.toString()),
                 ComicInfoRow(label: 'Reads', value: comic.readCount.toString()),
                 ComicInfoRow(
+                  label: 'Sensitive',
+                  value: comic.isSensitive ? 'Yes' : 'No',
+                ),
+                ComicInfoRow(
                   label: 'Chapters',
                   value: comic.chapterCount.toString(),
                 ),

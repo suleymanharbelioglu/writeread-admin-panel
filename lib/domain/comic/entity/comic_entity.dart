@@ -6,6 +6,7 @@ class ComicEntity {
   final String title;
   final String description;
   final String image;
+  final bool isSensitive;
   final int likeCount;
   final int readCount;
   final int chapterCount;         // 🔥 eklendi
@@ -19,7 +20,10 @@ class ComicEntity {
     required this.title,
     required this.description,
     required this.image,
-    required this.likeCount,    required this.readCount,    required this.chapterCount,    // 🔥 constructor’a eklendi
+    required this.isSensitive,
+    required this.likeCount,
+    required this.readCount,
+    required this.chapterCount,    // 🔥 constructor’a eklendi
     required this.createdDate,
     required this.categoryId,
     required this.categoryName,

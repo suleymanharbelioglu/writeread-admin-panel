@@ -14,6 +14,7 @@ class AddComicUseCase implements UseCase<Either<String, ComicEntity>, AddComicPa
       params.title.trim(),
       params.description.trim(),
       params.categoryName.trim(),
+      isSensitive: params.isSensitive,
       imageBytes: params.imageBytes,
     );
   }

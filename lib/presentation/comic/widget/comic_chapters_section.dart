@@ -33,6 +33,7 @@ class ComicChaptersSection extends StatelessWidget {
             ...comic.chapters.map(
               (ch) => ChapterTile(
                 comicId: comic.comicId,
+                comicTitle: comic.title,
                 chapter: ch,
                 imageUrls: ImageDisplayHelper.generateChapterImageURLs(ch),
               ),

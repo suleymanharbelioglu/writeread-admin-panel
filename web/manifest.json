@@ -1,11 +1,11 @@
 {
-    "name": "writeread_admin_panel",
-    "short_name": "writeread_admin_panel",
+    "name": "Chapt",
+    "short_name": "Chapt",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Chapt admin panel",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

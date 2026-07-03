@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="writeread_admin_panel"
+        android:label="Chapt"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

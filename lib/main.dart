@@ -64,7 +64,7 @@ class MyApp extends StatelessWidget {
 
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Comics App',
+        title: 'Chapt',
         theme: AppTheme.appTheme,
         home: SplashPage(),
       ),

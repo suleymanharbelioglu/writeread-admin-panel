@@ -1,9 +1,11 @@
 import 'package:email_validator/email_validator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:writeread_admin_panel/domain/auth/usecase/signin.dart';
-import 'package:writeread_admin_panel/presentation/auth/cubit/signin_cubit.dart';
-import 'package:writeread_admin_panel/presentation/auth/cubit/signin_state.dart';
+import 'package:writeread_admin_panel/common/helper/navigator/app_navigator.dart';
+import 'package:writeread_admin_panel/common/helper/ui/app_feedback.dart';
+import 'package:writeread_admin_panel/domain/auth/usecases/signin.dart';
+import 'package:writeread_admin_panel/presentation/auth/bloc/signin_cubit.dart';
+import 'package:writeread_admin_panel/presentation/auth/bloc/signin_state.dart';
 import 'package:writeread_admin_panel/presentation/is_admin/page/is_admin.dart';
 import 'package:writeread_admin_panel/service_locator.dart';
 
@@ -18,7 +20,6 @@ class _SigninPageState extends State<SigninPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -27,14 +28,16 @@ class _SigninPageState extends State<SigninPage> {
     super.dispose();
   }
 
+  /// Format hints only; empty/business rules live in SigninUseCase.
   String? _validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Enter your email';
-    if (!EmailValidator.validate(value.trim())) return 'Enter a valid email';
+    final email = value?.trim() ?? '';
+    if (email.isEmpty) return null;
+    if (!EmailValidator.validate(email)) return 'Enter a valid email';
     return null;
   }
 
   String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) return 'Enter your password';
+    if (value == null || value.isEmpty) return null;
     if (value.length < 6) return 'At least 6 characters';
     return null;
   }
@@ -42,25 +45,19 @@ class _SigninPageState extends State<SigninPage> {
   void _submit(BuildContext context) {
     if (_formKey.currentState?.validate() ?? false) {
       context.read<SigninCubit>().signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
     }
   }
 
   void _handleSigninState(BuildContext context, SigninState state) {
-    if (state is SigninSuccess) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Signed in successfully')));
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const IsAdminPage()));
+    if (state.status == SigninStatus.success) {
+      AppFeedback.showSuccess(context, 'Signed in successfully');
+      AppNavigator.pushReplacement(context, const IsAdminPage());
     }
-    if (state is SigninError) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(state.message)));
+    if (state.status == SigninStatus.failure && state.errorMessage != null) {
+      AppFeedback.showError(context, state.errorMessage!);
     }
   }
 
@@ -80,9 +77,21 @@ class _SigninPageState extends State<SigninPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Text(
+                      'Admin panel — sign in with your admin account',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.7),
+                          ),
+                    ),
+                    const SizedBox(height: 24),
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
                       decoration: const InputDecoration(
                         labelText: 'Email',
                         border: OutlineInputBorder(),
@@ -90,31 +99,41 @@ class _SigninPageState extends State<SigninPage> {
                       validator: _validateEmail,
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                    BlocBuilder<SigninCubit, SigninState>(
+                      buildWhen: (prev, curr) =>
+                          prev.obscurePassword != curr.obscurePassword,
+                      builder: (context, state) {
+                        return TextFormField(
+                          controller: _passwordController,
+                          obscureText: state.obscurePassword,
+                          autofillHints: const [AutofillHints.password],
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                state.obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
+                              onPressed: () => context
+                                  .read<SigninCubit>()
+                                  .toggleObscurePassword(),
+                            ),
                           ),
-                          onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          ),
-                        ),
-                      ),
-                      validator: _validatePassword,
+                          validator: _validatePassword,
+                        );
+                      },
                     ),
                     const SizedBox(height: 24),
                     BlocConsumer<SigninCubit, SigninState>(
+                      listenWhen: (prev, curr) => prev.status != curr.status,
                       listener: (context, state) =>
                           _handleSigninState(context, state),
+                      buildWhen: (prev, curr) =>
+                          prev.isLoading != curr.isLoading,
                       builder: (context, state) {
-                        final loading = state is SigninLoading;
+                        final loading = state.isLoading;
                         return ElevatedButton(
                           onPressed: loading ? null : () => _submit(context),
                           child: loading

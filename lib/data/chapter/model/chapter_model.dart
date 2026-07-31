@@ -2,13 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:writeread_admin_panel/domain/chapter/entity/chapter_entity.dart';
 
 class ChapterModel {
-  final String chapterId; // chapter1, chapter2 ...
-  final String comicId; // comicId
-  final int pageCount; // 🔥 kaç sayfa (görsel)
-  final String chapterName; // 🔹 chapter adı
-  final Timestamp createdDate;
-  final bool isVip; // 🔒 VIP chapter mı?
-  /// Firebase Storage download URL for chapter music (optional).
+  final String chapterId;
+  final String comicId;
+  final int pageCount;
+  final String chapterName;
+  final DateTime createdDate;
+  final bool isFreePreview;
   final String? musicUrl;
 
   ChapterModel({
@@ -17,37 +16,45 @@ class ChapterModel {
     required this.pageCount,
     required this.chapterName,
     required this.createdDate,
-    this.isVip = true,
+    this.isFreePreview = false,
     this.musicUrl,
   });
 
   Map<String, dynamic> toMap() {
     return {
-      "chapterId": chapterId,
-      "comicId": comicId,
-      "pageCount": pageCount,
-      "chapterName": chapterName,
-      "createdDate": createdDate,
-      "isVip": isVip,
-      if (musicUrl != null && musicUrl!.isNotEmpty) "musicUrl": musicUrl,
+      'chapterId': chapterId,
+      'comicId': comicId,
+      'pageCount': pageCount,
+      'chapterName': chapterName,
+      'createdDate': Timestamp.fromDate(createdDate),
+      'isFreePreview': isFreePreview,
+      if (musicUrl != null && musicUrl!.isNotEmpty) 'musicUrl': musicUrl,
     };
   }
 
   factory ChapterModel.fromMap(Map<String, dynamic> map) {
     return ChapterModel(
-      chapterId: map["chapterId"],
-      comicId: map["comicId"],
-      pageCount: map["pageCount"],
-      chapterName: map["chapterName"],
-      createdDate: map["createdDate"],
-      isVip: (map["isVip"] ?? false) as bool,
-      musicUrl: map["musicUrl"] as String?,
+      chapterId: map['chapterId'] as String? ?? '',
+      comicId: map['comicId'] as String? ?? '',
+      pageCount: (map['pageCount'] as num?)?.toInt() ?? 0,
+      chapterName: map['chapterName'] as String? ?? '',
+      createdDate: _parseDate(map['createdDate']),
+      isFreePreview: map['isFreePreview'] as bool? ?? false,
+      musicUrl: map['musicUrl'] as String?,
     );
+  }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) {
+      return DateTime.tryParse(value) ?? DateTime.now();
+    }
+    return DateTime.now();
   }
 }
 
-// ChapterModel -> ChapterEntity
-extension ChapterXModel on ChapterModel {
+extension ChapterModelX on ChapterModel {
   ChapterEntity toEntity() {
     return ChapterEntity(
       chapterId: chapterId,
@@ -55,22 +62,21 @@ extension ChapterXModel on ChapterModel {
       pageCount: pageCount,
       chapterName: chapterName,
       createdDate: createdDate,
-      isVip: isVip,
+      isFreePreview: isFreePreview,
       musicUrl: musicUrl,
     );
   }
 }
 
-// ChapterEntity -> ChapterModel
-extension ChapterXEntity on ChapterEntity {
-  ChapterModel fromEntity() {
+extension ChapterEntityX on ChapterEntity {
+  ChapterModel toModel() {
     return ChapterModel(
       chapterId: chapterId,
       comicId: comicId,
       pageCount: pageCount,
       chapterName: chapterName,
       createdDate: createdDate,
-      isVip: isVip,
+      isFreePreview: isFreePreview,
       musicUrl: musicUrl,
     );
   }

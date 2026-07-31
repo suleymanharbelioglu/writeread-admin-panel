@@ -1,24 +1,24 @@
 import 'package:audioplayers/audioplayers.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:writeread_admin_panel/common/helper/files/app_file_picker.dart';
+import 'package:writeread_admin_panel/common/helper/navigator/app_navigator.dart';
+import 'package:writeread_admin_panel/common/helper/ui/app_copy.dart';
 import 'package:writeread_admin_panel/domain/chapter/entity/chapter_entity.dart';
-import 'package:writeread_admin_panel/domain/chapter/usecase/update_chapter_params.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/edit_chapter_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/edit_chapter_state.dart';
-import 'package:writeread_admin_panel/presentation/comment/widget/comments_dialog.dart';
 
 class ChapterTile extends StatefulWidget {
   const ChapterTile({
     super.key,
     required this.comicId,
-    required this.comicTitle,
+    required this.isPaidComic,
     required this.chapter,
     required this.imageUrls,
   });
 
   final String comicId;
-  final String comicTitle;
+  final bool isPaidComic;
   final ChapterEntity chapter;
   final List<String> imageUrls;
 
@@ -39,138 +39,101 @@ class _ChapterTileState extends State<ChapterTile> {
   }
 
   Future<void> _togglePlayStop() async {
-    final chapter = widget.chapter;
-    final url = chapter.musicUrl;
+    final url = widget.chapter.musicUrl;
     if (url == null || url.isEmpty) return;
     if (_isPlaying) {
       await _audioPlayer?.stop();
       if (mounted) setState(() => _isPlaying = false);
       return;
     }
-    if (_audioPlayer == null) {
-      _audioPlayer = AudioPlayer();
-      _audioPlayer!.onPlayerComplete.listen((_) {
+    _audioPlayer ??= AudioPlayer()
+      ..onPlayerComplete.listen((_) {
         if (mounted) setState(() => _isPlaying = false);
       });
-    }
     await _audioPlayer!.setSource(UrlSource(url));
     await _audioPlayer!.resume();
     if (mounted) setState(() => _isPlaying = true);
   }
 
   Future<void> _pickAndUploadMusic() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.audio,
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.single;
-    if (file.bytes == null || file.bytes!.lengthInBytes == 0) return;
-    if (!mounted) return;
-    final bytes = file.bytes!.buffer.asUint8List().toList();
-    context.read<EditChapterCubit>().updateChapter(UpdateChapterParams(
+    final picked = await AppFilePicker.pickAudioBytes();
+    if (!mounted || picked == null) return;
+    context.read<EditChapterCubit>().uploadMusic(
           comicId: widget.comicId,
           chapterId: widget.chapter.chapterId,
-          musicBytes: bytes,
-        ));
-  }
-
-  Widget _buildMusicRow(
-    BuildContext context,
-    ChapterEntity chapter,
-    bool loading,
-  ) {
-    final hasMusic = chapter.musicUrl != null && chapter.musicUrl!.isNotEmpty;
-    return Row(
-      children: [
-        if (hasMusic) ...[
-          const Icon(Icons.music_note, size: 20),
-          const SizedBox(width: 8),
-          const Text('music.mp3', style: TextStyle(fontSize: 14)),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: loading ? null : _togglePlayStop,
-            icon: Icon(_isPlaying ? Icons.stop : Icons.play_arrow),
-            tooltip: _isPlaying ? 'Durdur' : 'Oynat',
-          ),
-          const SizedBox(width: 8),
-          OutlinedButton.icon(
-            onPressed: loading ? null : _pickAndUploadMusic,
-            icon: const Icon(Icons.upload_file, size: 18),
-            label: const Text('Müzik değiştir'),
-          ),
-        ] else
-          OutlinedButton.icon(
-            onPressed: loading ? null : _pickAndUploadMusic,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Müzik ekle'),
-          ),
-      ],
-    );
+          musicBytes: picked.bytes,
+        );
   }
 
   Future<void> _addMoreImages() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      allowMultiple: true,
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) return;
-    final bytesList = result.files
-        .where((f) => f.bytes != null && f.bytes!.lengthInBytes > 0)
-        .map((f) => f.bytes!.buffer.asUint8List().toList())
-        .toList();
-    if (bytesList.isEmpty) return;
-    if (!mounted) return;
-    context.read<EditChapterCubit>().updateChapter(UpdateChapterParams(
+    final bytesList = await AppFilePicker.pickImageBytesList();
+    if (!mounted || bytesList.isEmpty) return;
+    context.read<EditChapterCubit>().addImages(
           comicId: widget.comicId,
           chapterId: widget.chapter.chapterId,
-          additionalImageBytesList: bytesList,
-        ));
+          imageBytesList: bytesList,
+        );
+  }
+
+  Future<void> _confirmDeleteAllImages() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete all images'),
+        content: Text(
+          'This removes every page image from "${widget.chapter.chapterName}". '
+          'You can upload new pages afterward. Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => AppNavigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => AppNavigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    context.read<EditChapterCubit>().deleteAllChapterImages(
+          widget.comicId,
+          widget.chapter.chapterId,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
     final chapter = widget.chapter;
     final imageUrls = widget.imageUrls;
+    final accessLabel = !widget.isPaidComic
+        ? 'Open (free comic)'
+        : chapter.isFreePreview
+            ? 'Free preview'
+            : 'Requires purchase';
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: Column(
         children: [
           ListTile(
-            title: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    chapter.chapterName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (dialogContext) => CommentsDialog.chapter(
-                      comicId: widget.comicId,
-                      comicTitle: widget.comicTitle,
-                      chapterId: chapter.chapterId,
-                      chapterName: chapter.chapterName,
-                    ),
-                  ),
-                  icon: const Icon(Icons.comment_outlined, size: 18),
-                  label: const Text('Comments'),
-                ),
-              ],
-            ),
+            title: Text(chapter.chapterName),
             subtitle: Text(
-              '${chapter.pageCount} pages • ${chapter.isVip ? "VIP" : "Free"}',
+              '${chapter.pageCount} pages • $accessLabel',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (chapter.isVip) const Icon(Icons.lock, size: 20),
+                if (widget.isPaidComic && !chapter.isFreePreview)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: Icon(Icons.lock, size: 20),
+                  ),
                 Icon(_expanded ? Icons.expand_less : Icons.expand_more),
               ],
             ),
@@ -180,99 +143,126 @@ class _ChapterTileState extends State<ChapterTile> {
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  BlocBuilder<EditChapterCubit, EditChapterState>(
-                    buildWhen: (prev, curr) => prev != curr,
-                    builder: (context, editState) {
-                      final loading = editState is EditChapterLoading &&
-                          editState.chapterId == chapter.chapterId;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              child: BlocBuilder<EditChapterCubit, EditChapterState>(
+                builder: (context, editState) {
+                  final loading = editState is EditChapterLoading &&
+                      editState.chapterId == chapter.chapterId;
+                  final cubit = context.read<EditChapterCubit>();
+                  final hasMusic =
+                      chapter.musicUrl != null && chapter.musicUrl!.isNotEmpty;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              SizedBox(
-                                width: 180,
-                                child: SwitchListTile(
-                                  value: chapter.isVip,
-                                  onChanged: loading
-                                      ? null
-                                      : (value) {
-                                          context.read<EditChapterCubit>().updateChapter(
-                                                UpdateChapterParams(
-                                                  comicId: widget.comicId,
-                                                  chapterId: chapter.chapterId,
-                                                  isVip: value,
-                                                ),
-                                              );
-                                        },
-                                  title: const Text('VIP'),
-                                  contentPadding: EdgeInsets.zero,
+                          if (widget.isPaidComic)
+                            SizedBox(
+                              width: 220,
+                              child: SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Free preview'),
+                                subtitle: const Text(
+                                  AppCopy.freePreviewTileSubtitle,
                                 ),
+                                value: chapter.isFreePreview,
+                                onChanged: loading
+                                    ? null
+                                    : (value) => cubit.setFreePreview(
+                                          comicId: widget.comicId,
+                                          chapterId: chapter.chapterId,
+                                          isFreePreview: value,
+                                        ),
                               ),
-                              const SizedBox(width: 8),
-                              OutlinedButton.icon(
-                                onPressed: loading ? null : _addMoreImages,
-                                icon: const Icon(Icons.add_photo_alternate, size: 18),
-                                label: const Text('Add more images'),
-                              ),
-                              if (imageUrls.isNotEmpty) ...[
-                                const SizedBox(width: 8),
-                                OutlinedButton.icon(
-                                  onPressed: loading
-                                      ? null
-                                      : () {
-                                          context.read<EditChapterCubit>().deleteAllChapterImages(
-                                                widget.comicId,
-                                                chapter.chapterId,
-                                              );
-                                        },
-                                  icon: const Icon(Icons.delete_forever, size: 18),
-                                  label: const Text('Delete All Images'),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Theme.of(context).colorScheme.error,
-                                  ),
-                                ),
-                              ],
-                            ],
+                            ),
+                          OutlinedButton.icon(
+                            onPressed: loading ? null : _addMoreImages,
+                            icon: const Icon(Icons.add_photo_alternate, size: 18),
+                            label: const Text('Add more images'),
                           ),
-                          const SizedBox(height: 12),
-                          _buildMusicRow(context, chapter, loading),
-                          const SizedBox(height: 12),
-                          if (imageUrls.isEmpty)
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 24),
-                                child: Text('No image yet'),
+                          if (imageUrls.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              onPressed:
+                                  loading ? null : _confirmDeleteAllImages,
+                              icon: const Icon(Icons.delete_forever, size: 18),
+                              label: const Text('Delete All Images'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor:
+                                    Theme.of(context).colorScheme.error,
                               ),
-                            )
-                          else
-                            ...imageUrls.asMap().entries.map((e) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 6),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Page ${e.key + 1}:',
-                                      style: Theme.of(context).textTheme.labelSmall,
-                                    ),
-                                    SelectableText(
-                                      e.value,
-                                      style: Theme.of(context).textTheme.bodySmall
-                                          ?.copyWith(fontFamily: 'monospace'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
+                            ),
+                          ],
                         ],
-                      );
-                    },
-                  ),
-                ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          if (hasMusic) ...[
+                            const Icon(Icons.music_note, size: 20),
+                            const SizedBox(width: 8),
+                            const Text('music.mp3', style: TextStyle(fontSize: 14)),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: loading ? null : _togglePlayStop,
+                              icon: Icon(
+                                _isPlaying ? Icons.stop : Icons.play_arrow,
+                              ),
+                              tooltip: _isPlaying ? 'Stop' : 'Play',
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              onPressed: loading ? null : _pickAndUploadMusic,
+                              icon: const Icon(Icons.upload_file, size: 18),
+                              label: const Text('Change music'),
+                            ),
+                          ] else
+                            OutlinedButton.icon(
+                              onPressed: loading ? null : _pickAndUploadMusic,
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add music'),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Music is optional. MP3 recommended.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.7),
+                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (imageUrls.isEmpty)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Text(
+                              'No pages yet. Tap Add more images to upload.',
+                            ),
+                          ),
+                        )
+                      else ...[
+                        Text(
+                          '${imageUrls.length} page(s) in reading order',
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        ...imageUrls.asMap().entries.map((e) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(
+                              'Page ${e.key + 1}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          );
+                        }),
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
           ],

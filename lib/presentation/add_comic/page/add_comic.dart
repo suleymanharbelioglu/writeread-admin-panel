@@ -1,10 +1,13 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:writeread_admin_panel/domain/comic/usecase/add_comic_params.dart';
+import 'package:writeread_admin_panel/common/helper/files/app_file_picker.dart';
+import 'package:writeread_admin_panel/common/helper/navigator/app_navigator.dart';
+import 'package:writeread_admin_panel/common/helper/ui/app_copy.dart';
+import 'package:writeread_admin_panel/common/helper/ui/app_feedback.dart';
+import 'package:writeread_admin_panel/common/widgets/info_tip.dart';
+import 'package:writeread_admin_panel/common/widgets/loading_overlay.dart';
 import 'package:writeread_admin_panel/presentation/add_comic/bloc/add_comic_cubit.dart';
 import 'package:writeread_admin_panel/presentation/add_comic/bloc/add_comic_state.dart';
-import 'package:writeread_admin_panel/presentation/comic/bloc/current_comic_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/page/comic.dart';
 
 class AddComicPage extends StatefulWidget {
@@ -18,160 +21,173 @@ class _AddComicPageState extends State<AddComicPage> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _categoryNameController = TextEditingController();
-  List<int>? _imageBytes;
-  bool _isSensitive = false;
+  final _productIdController = TextEditingController();
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     _categoryNameController.dispose();
+    _productIdController.dispose();
     super.dispose();
   }
 
   Future<void> _pickImage() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.single;
-    if (file.bytes != null && file.bytes!.lengthInBytes > 0) {
-      setState(() => _imageBytes = file.bytes!.buffer.asUint8List().toList());
-    }
-  }
-
-  void _submit() {
-    final title = _titleController.text.trim();
-    if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Title is required')),
-      );
-      return;
-    }
-    context.read<AddComicCubit>().addComic(
-          AddComicParams(
-            title: title,
-            description: _descriptionController.text.trim(),
-            categoryName: _categoryNameController.text.trim(),
-            isSensitive: _isSensitive,
-            imageBytes: _imageBytes,
-          ),
-        );
+    final bytes = await AppFilePicker.pickImageBytes();
+    if (!mounted || bytes == null) return;
+    context.read<AddComicCubit>().setImageBytes(bytes);
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AddComicCubit, AddComicState>(
+    return BlocConsumer<AddComicCubit, AddComicState>(
+      listenWhen: (prev, curr) =>
+          prev.status != curr.status &&
+          (curr.status == AddComicStatus.success ||
+              curr.status == AddComicStatus.failure),
       listener: (context, state) {
-        if (state is AddComicSuccess) {
-          context.read<CurrentComicCubit>().setComic(state.comic);
-          Navigator.of(context).pop();
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ComicPage()),
-          );
-        } else if (state is AddComicFailure) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
+        final comic = state.comic;
+        if (state.status == AddComicStatus.success && comic != null) {
+          AppNavigator.pushReplacement<void>(context, ComicPage.route(comic));
+          return;
+        }
+        if (state.status == AddComicStatus.failure &&
+            state.errorMessage != null) {
+          AppFeedback.showError(context, state.errorMessage!);
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Add new comic'),
-          actions: [
-            BlocBuilder<AddComicCubit, AddComicState>(
-              buildWhen: (prev, curr) =>
-                  curr is AddComicLoading || curr is AddComicInitial || curr is AddComicFailure,
-              builder: (context, state) {
-                final loading = state is AddComicLoading;
-                return loading
-                    ? const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
+      builder: (context, state) {
+        final cubit = context.read<AddComicCubit>();
+        final loading = state.isLoading;
+
+        return LoadingOverlay(
+          isLoading: loading,
+          message: loading ? 'Saving comic...' : null,
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text('Add new comic'),
+              actions: [
+                TextButton(
+                  onPressed: loading
+                      ? null
+                      : () => cubit.submit(
+                            title: _titleController.text,
+                            description: _descriptionController.text,
+                            categoryName: _categoryNameController.text,
+                            productId: _productIdController.text,
+                          ),
+                  child: loading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : TextButton(
-                        onPressed: loading ? null : _submit,
-                        child: const Text('Save'),
-                      );
-              },
+                        )
+                      : const Text('Save'),
+                ),
+              ],
             ),
-          ],
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Title',
-                  border: OutlineInputBorder(),
-                ),
-                textCapitalization: TextCapitalization.words,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
-                maxLines: 4,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _categoryNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Category name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Sensitive content'),
-                subtitle: const Text('Mark this comic as sensitive/explicit'),
-                value: _isSensitive,
-                onChanged: (v) => setState(() => _isSensitive = v),
-              ),
-              const SizedBox(height: 8),
-              BlocBuilder<AddComicCubit, AddComicState>(
-                buildWhen: (prev, curr) =>
-                    curr is AddComicLoading || curr is AddComicInitial,
-                builder: (context, state) {
-                  final loading = state is AddComicLoading;
-                  return OutlinedButton.icon(
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const InfoTip(message: AppCopy.addComicTip),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _titleController,
+                    enabled: !loading,
+                    decoration: const InputDecoration(
+                      labelText: 'Title',
+                      border: OutlineInputBorder(),
+                      helperText: AppCopy.titleHelper,
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _descriptionController,
+                    enabled: !loading,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                      alignLabelWithHint: true,
+                      helperText: AppCopy.descriptionHelper,
+                    ),
+                    maxLines: 4,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _categoryNameController,
+                    enabled: !loading,
+                    decoration: const InputDecoration(
+                      labelText: 'Category name',
+                      border: OutlineInputBorder(),
+                      helperText: AppCopy.categoryHelper,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Free comic'),
+                    subtitle: Text(
+                      state.isFree ? AppCopy.freeComicOn : AppCopy.freeComicOff,
+                    ),
+                    value: state.isFree,
+                    onChanged: loading ? null : cubit.setFree,
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _productIdController,
+                    enabled: !loading,
+                    decoration: const InputDecoration(
+                      labelText: 'Store Product ID (IAP) *',
+                      border: OutlineInputBorder(),
+                      hintText: AppCopy.productIdHint,
+                      helperText: AppCopy.productIdHelper,
+                      helperMaxLines: 4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Sensitive content'),
+                    subtitle: const Text(AppCopy.sensitiveSubtitle),
+                    value: state.isSensitive,
+                    onChanged: loading ? null : cubit.setSensitive,
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
                     onPressed: loading ? null : _pickImage,
                     icon: const Icon(Icons.image),
                     label: Text(
-                      _imageBytes != null
+                      state.imageBytes != null
                           ? 'Change image'
                           : 'Pick image from folder',
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    AppCopy.coverHelper,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.7),
+                        ),
+                  ),
+                  if (state.imageBytes != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Image selected (${(state.imageBytes!.length / 1024).toStringAsFixed(1)} KB)',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ],
               ),
-              if (_imageBytes != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Image selected (${(_imageBytes!.length / 1024).toStringAsFixed(1)} KB)',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

@@ -1,16 +1,19 @@
-import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dartz/dartz.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/widgets.dart';
+import 'package:writeread_admin_panel/core/constants/firestore_collections.dart';
+import 'package:writeread_admin_panel/core/error/firebase_error_mapper.dart';
+import 'package:writeread_admin_panel/core/firebase/firestore_write_helper.dart';
+import 'package:writeread_admin_panel/core/firebase/soft_deadline.dart';
+import 'package:writeread_admin_panel/data/chapter/model/chapter_model.dart';
 import 'package:writeread_admin_panel/data/chapter/source/chapter_firebase_service.dart';
 
 class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
-  static const String _comicsCollection = 'Comics';
-  static const String _storageComicsPath = 'Comics';
+  static const String _comicsCollection = FirestoreCollections.comics;
+  static const String _storageComicsPath = FirestoreCollections.comics;
+  static const Duration _storageTimeout = Duration(seconds: 60);
 
   @override
   Future<Either<String, void>> deleteLastChapter(String comicId) async {
@@ -47,14 +50,25 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
       }
 
       final newChapters = chaptersList.sublist(0, chaptersList.length - 1);
-      await docRef.update({
+      final write = await FirestoreWriteHelper.updateDocument(docRef, {
         'chapters': newChapters,
         'chapterCount': newChapters.length,
       });
+      if (!write.isSuccess) {
+        return Left(
+          FirebaseErrorMapper.map(write.error!, action: 'Delete chapter'),
+        );
+      }
 
       return const Right(null);
-    } catch (e) {
-      return Left('Failed to delete chapter: $e');
+    } catch (e, stackTrace) {
+      return Left(
+        FirebaseErrorMapper.map(
+          e,
+          action: 'Delete chapter',
+          stackTrace: stackTrace,
+        ),
+      );
     }
   }
 
@@ -73,25 +87,26 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
           .child(chapterId);
       await _deleteStorageFolderRecursively(folderRef);
       return const Right(null);
-    } on FirebaseException catch (e) {
-      // permission-denied = not signed in; object-not-found = folder already gone
+    } on FirebaseException catch (e, stackTrace) {
       if (e.code == 'object-not-found') {
         return const Right(null);
       }
-      return Left('Storage: ${e.code} – ${e.message ?? e.toString()}');
-    } catch (e) {
-      return Left('Failed to delete chapter folder: $e');
+      return Left(
+        FirebaseErrorMapper.map(
+          e,
+          action: 'Delete chapter folder',
+          stackTrace: stackTrace,
+        ),
+      );
+    } catch (e, stackTrace) {
+      return Left(
+        FirebaseErrorMapper.map(
+          e,
+          action: 'Delete chapter folder',
+          stackTrace: stackTrace,
+        ),
+      );
     }
-  }
-
-  /// Runs [fn] on the platform (main) thread to avoid Firebase plugin
-  /// "non-platform thread" crashes on Windows/desktop.
-  Future<T> _runOnPlatformThread<T>(Future<T> Function() fn) async {
-    final completer = Completer<T>();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      fn().then(completer.complete).catchError(completer.completeError);
-    });
-    return completer.future;
   }
 
   Future<void> _deleteStorageFolderRecursively(Reference ref) async {
@@ -104,12 +119,22 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
     }
   }
 
+  Future<void> _putBytes(Reference ref, Uint8List bytes, String contentType) {
+    return softDeadlineVoid(
+      ref.putData(bytes, SettableMetadata(contentType: contentType)),
+      deadline: _storageTimeout,
+      onDeadline: () => throw StateError(
+        'Upload timed out. Check your connection.',
+      ),
+    );
+  }
+
   @override
-  Future<Either<String, String?>> addChapter(
+  Future<Either<String, ChapterModel>> addChapter(
     String comicId,
     String chapterName,
     List<List<int>> imageBytesList, {
-    bool isVip = true,
+    bool isFreePreview = false,
     List<int>? musicBytes,
   }) async {
     if (imageBytesList.isEmpty) {
@@ -126,16 +151,16 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
       final data = doc.data()!;
       final currentCount = (data['chapterCount'] as num?)?.toInt() ?? 0;
       final newChapterId = 'chapter${currentCount + 1}';
+      final createdDate = Timestamp.now();
       final newChapter = <String, dynamic>{
         'chapterId': newChapterId,
         'comicId': comicId,
         'chapterName': chapterName,
-        'createdDate': Timestamp.now(),
+        'createdDate': createdDate,
         'pageCount': imageBytesList.length,
-        'isVip': isVip,
+        'isFreePreview': isFreePreview,
       };
 
-      String? resultMusicUrl;
       // Upload music to Storage first so we can store the URL in Firestore.
       if (musicBytes != null && musicBytes.isNotEmpty) {
         final folderRef = FirebaseStorage.instance
@@ -144,51 +169,51 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
             .child(comicId)
             .child(newChapterId);
         final musicRef = folderRef.child('music.mp3');
-        await _runOnPlatformThread(
-          () => musicRef.putData(
-            Uint8List.fromList(musicBytes),
-            SettableMetadata(contentType: 'audio/mpeg'),
+        await _putBytes(
+          musicRef,
+          Uint8List.fromList(musicBytes),
+          'audio/mpeg',
+        );
+        final musicUrl = await softDeadline(
+          musicRef.getDownloadURL(),
+          deadline: _storageTimeout,
+          onDeadline: () => throw StateError(
+            'Getting music URL timed out. Check your connection.',
           ),
         );
-        final musicUrl = await _runOnPlatformThread(
-          () => musicRef.getDownloadURL(),
-        );
         newChapter['musicUrl'] = musicUrl;
-        resultMusicUrl = musicUrl;
       }
 
-      // Update Firestore so chapter (with optional musicUrl) is saved.
-      await docRef.update({
+      final write = await FirestoreWriteHelper.updateDocument(docRef, {
         'chapters': FieldValue.arrayUnion([newChapter]),
         'chapterCount': FieldValue.increment(1),
       });
+      if (!write.isSuccess) {
+        return Left(
+          FirebaseErrorMapper.map(write.error!, action: 'Add chapter'),
+        );
+      }
       final folderRef = FirebaseStorage.instance
           .ref()
           .child(_storageComicsPath)
           .child(comicId)
           .child(newChapterId);
-      // Run each Storage upload on the main (platform) thread to avoid
-      // "channel sent a message from native to Flutter on a non-platform thread"
-      // crash on Windows/desktop.
       for (var i = 0; i < imageBytesList.length; i++) {
         final pageRef = folderRef.child('${i + 1}.jpeg');
         final bytes = imageBytesList[i].isNotEmpty
             ? Uint8List.fromList(imageBytesList[i])
             : Uint8List(0);
-        await _runOnPlatformThread(
-          () => pageRef.putData(
-            bytes,
-            SettableMetadata(contentType: 'image/jpeg'),
-          ),
-        );
+        await _putBytes(pageRef, bytes, 'image/jpeg');
       }
-      return Right(resultMusicUrl);
-    } on FirebaseException catch (e) {
+      return Right(ChapterModel.fromMap(newChapter));
+    } catch (e, stackTrace) {
       return Left(
-        'Storage/Firestore: ${e.code} – ${e.message ?? e.toString()}',
+        FirebaseErrorMapper.map(
+          e,
+          action: 'Add chapter',
+          stackTrace: stackTrace,
+        ),
       );
-    } catch (e) {
-      return Left('Failed to add chapter: $e');
     }
   }
 
@@ -196,7 +221,7 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
   Future<Either<String, String?>> updateChapter(
     String comicId,
     String chapterId, {
-    bool? isVip,
+    bool? isFreePreview,
     List<List<int>>? additionalImageBytesList,
     List<int>? musicBytes,
   }) async {
@@ -218,7 +243,7 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
       );
       if (index < 0) return const Left('Chapter not found');
       final chapter = Map<String, dynamic>.from(chaptersList[index]);
-      if (isVip != null) chapter['isVip'] = isVip;
+      if (isFreePreview != null) chapter['isFreePreview'] = isFreePreview;
 
       final folderRef = FirebaseStorage.instance
           .ref()
@@ -230,18 +255,27 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
       if (musicBytes != null && musicBytes.isNotEmpty) {
         final musicRef = folderRef.child('music.mp3');
         try {
-          await _runOnPlatformThread(() => musicRef.delete());
+          await softDeadlineVoid(
+            musicRef.delete(),
+            deadline: _storageTimeout,
+            onDeadline: () => throw StateError(
+              'Deleting music timed out. Check your connection.',
+            ),
+          );
         } on FirebaseException catch (e) {
           if (e.code != 'object-not-found') rethrow;
         }
-        await _runOnPlatformThread(
-          () => musicRef.putData(
-            Uint8List.fromList(musicBytes),
-            SettableMetadata(contentType: 'audio/mpeg'),
-          ),
+        await _putBytes(
+          musicRef,
+          Uint8List.fromList(musicBytes),
+          'audio/mpeg',
         );
-        final musicUrl = await _runOnPlatformThread(
-          () => musicRef.getDownloadURL(),
+        final musicUrl = await softDeadline(
+          musicRef.getDownloadURL(),
+          deadline: _storageTimeout,
+          onDeadline: () => throw StateError(
+            'Getting music URL timed out. Check your connection.',
+          ),
         );
         chapter['musicUrl'] = musicUrl;
         resultMusicUrl = musicUrl;
@@ -255,25 +289,29 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
           final bytes = additionalImageBytesList[i].isNotEmpty
               ? Uint8List.fromList(additionalImageBytesList[i])
               : Uint8List(0);
-          await _runOnPlatformThread(
-            () => pageRef.putData(
-              bytes,
-              SettableMetadata(contentType: 'image/jpeg'),
-            ),
-          );
+          await _putBytes(pageRef, bytes, 'image/jpeg');
         }
         newPageCount += additionalImageBytesList.length;
         chapter['pageCount'] = newPageCount;
       }
       chaptersList[index] = chapter;
-      await docRef.update({'chapters': chaptersList});
+      final write = await FirestoreWriteHelper.updateDocument(docRef, {
+        'chapters': chaptersList,
+      });
+      if (!write.isSuccess) {
+        return Left(
+          FirebaseErrorMapper.map(write.error!, action: 'Update chapter'),
+        );
+      }
       return Right(resultMusicUrl);
-    } on FirebaseException catch (e) {
+    } catch (e, stackTrace) {
       return Left(
-        'Update chapter: ${e.code} – ${e.message ?? e.toString()}',
+        FirebaseErrorMapper.map(
+          e,
+          action: 'Update chapter',
+          stackTrace: stackTrace,
+        ),
       );
-    } catch (e) {
-      return Left('Failed to update chapter: $e');
     }
   }
 
@@ -304,14 +342,26 @@ class ChapterFirebaseServiceImpl extends ChapterFirebaseService {
       final chapter = Map<String, dynamic>.from(chaptersList[index]);
       chapter['pageCount'] = 0;
       chaptersList[index] = chapter;
-      await docRef.update({'chapters': chaptersList});
+      final write = await FirestoreWriteHelper.updateDocument(docRef, {
+        'chapters': chaptersList,
+      });
+      if (!write.isSuccess) {
+        return Left(
+          FirebaseErrorMapper.map(
+            write.error!,
+            action: 'Delete chapter images',
+          ),
+        );
+      }
       return const Right(null);
-    } on FirebaseException catch (e) {
+    } catch (e, stackTrace) {
       return Left(
-        'Delete images: ${e.code} – ${e.message ?? e.toString()}',
+        FirebaseErrorMapper.map(
+          e,
+          action: 'Delete chapter images',
+          stackTrace: stackTrace,
+        ),
       );
-    } catch (e) {
-      return Left('Failed to delete chapter images: $e');
     }
   }
 }

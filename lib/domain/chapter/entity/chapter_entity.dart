@@ -1,22 +1,42 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class ChapterEntity {
   final String chapterId;
   final String comicId;
-  final int pageCount; // 🔥 chapter’daki görsel sayısı
-  final String chapterName; // 🔹 chapter adı
-  final Timestamp createdDate;
-  final bool isVip; // 🔒 VIP chapter mı?
-  /// Firebase Storage download URL for chapter music (optional).
+  final int pageCount;
+  final String chapterName;
+  final DateTime createdDate;
+  /// Readable without buying the comic (only applies when comic requires purchase).
+  final bool isFreePreview;
+  /// Download URL for chapter music (optional).
   final String? musicUrl;
 
-  ChapterEntity({
+  const ChapterEntity({
     required this.chapterId,
     required this.comicId,
     required this.pageCount,
     required this.chapterName,
     required this.createdDate,
-    this.isVip = true,
+    this.isFreePreview = false,
     this.musicUrl,
   });
+
+  ChapterEntity copyWith({
+    String? chapterId,
+    String? comicId,
+    int? pageCount,
+    String? chapterName,
+    DateTime? createdDate,
+    bool? isFreePreview,
+    String? musicUrl,
+    bool clearMusicUrl = false,
+  }) {
+    return ChapterEntity(
+      chapterId: chapterId ?? this.chapterId,
+      comicId: comicId ?? this.comicId,
+      pageCount: pageCount ?? this.pageCount,
+      chapterName: chapterName ?? this.chapterName,
+      createdDate: createdDate ?? this.createdDate,
+      isFreePreview: isFreePreview ?? this.isFreePreview,
+      musicUrl: clearMusicUrl ? null : (musicUrl ?? this.musicUrl),
+    );
+  }
 }

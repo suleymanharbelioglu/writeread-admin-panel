@@ -41,50 +41,48 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDs6uXiC8ViuXJSvtcc4uB4Jm8kOewLbXM',
-    appId: '1:436595745003:web:3b1dda92ba3faa73f0deae',
-    messagingSenderId: '436595745003',
-    projectId: 'comics-app-e163a',
-    authDomain: 'comics-app-e163a.firebaseapp.com',
-    storageBucket: 'comics-app-e163a.firebasestorage.app',
-    measurementId: 'G-MFNFBEDS3D',
+    apiKey: 'AIzaSyC2e3WpOPX9INImDmHgqg0GZ4OY6Zcj-24',
+    appId: '1:526305938678:web:3421a9eedfbc379fc4f0d7',
+    messagingSenderId: '526305938678',
+    projectId: 'writeread-de965',
+    authDomain: 'writeread-de965.firebaseapp.com',
+    storageBucket: 'writeread-de965.firebasestorage.app',
+    measurementId: 'G-D1EZCJ672E',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDkzabN2ljGa0WKDOX3N3peu0qIDUng_mA',
-    appId: '1:436595745003:android:e80f4b0b414d8862f0deae',
-    messagingSenderId: '436595745003',
-    projectId: 'comics-app-e163a',
-    storageBucket: 'comics-app-e163a.firebasestorage.app',
+    apiKey: 'AIzaSyA7IdLO8ZdGLurYCtRPaJnrMAYT_jzriGw',
+    appId: '1:526305938678:android:9be5997b534d8ce6c4f0d7',
+    messagingSenderId: '526305938678',
+    projectId: 'writeread-de965',
+    storageBucket: 'writeread-de965.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyA6scluhEhAg-3QbMCU8EohIC2gNviAB_k',
-    appId: '1:436595745003:ios:e807a30a6372b526f0deae',
-    messagingSenderId: '436595745003',
-    projectId: 'comics-app-e163a',
-    storageBucket: 'comics-app-e163a.firebasestorage.app',
-    iosClientId: '436595745003-45lpbl3fai088dvkqdjk468rm23i9m1d.apps.googleusercontent.com',
+    apiKey: 'AIzaSyCElEDyAh83Mc8BjqDo3DWbEzuZkLhyC00',
+    appId: '1:526305938678:ios:8a9dedc9625354a1c4f0d7',
+    messagingSenderId: '526305938678',
+    projectId: 'writeread-de965',
+    storageBucket: 'writeread-de965.firebasestorage.app',
+    iosClientId: '526305938678-t2qu47it3e6ml23j1pm1fr8hdm4opks1.apps.googleusercontent.com',
     iosBundleId: 'com.example.writereadAdminPanel',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyA6scluhEhAg-3QbMCU8EohIC2gNviAB_k',
-    appId: '1:436595745003:ios:e807a30a6372b526f0deae',
-    messagingSenderId: '436595745003',
-    projectId: 'comics-app-e163a',
-    storageBucket: 'comics-app-e163a.firebasestorage.app',
-    iosClientId: '436595745003-45lpbl3fai088dvkqdjk468rm23i9m1d.apps.googleusercontent.com',
+    apiKey: 'AIzaSyCElEDyAh83Mc8BjqDo3DWbEzuZkLhyC00',
+    appId: '1:526305938678:ios:8a9dedc9625354a1c4f0d7',
+    messagingSenderId: '526305938678',
+    projectId: 'writeread-de965',
+    storageBucket: 'writeread-de965.firebasestorage.app',
+    iosClientId: '526305938678-t2qu47it3e6ml23j1pm1fr8hdm4opks1.apps.googleusercontent.com',
     iosBundleId: 'com.example.writereadAdminPanel',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyClwBoC-jWRUPJ1S2mtBCvR14kqmSr5tBQ',
-    appId: '1:436595745003:web:6d045199efd83ce7f0deae',
-    messagingSenderId: '436595745003',
-    projectId: 'comics-app-e163a',
-    authDomain: 'comics-app-e163a.firebaseapp.com',
-    storageBucket: 'comics-app-e163a.firebasestorage.app',
-    measurementId: 'G-7J8X2FB3WY',
+    apiKey: 'AIzaSyC2e3WpOPX9INImDmHgqg0GZ4OY6Zcj-24',
+    appId: '1:526305938678:web:34dda59401c8f238c4f0d7',
+    messagingSenderId: '526305938678',
+    projectId: 'writeread-de965',
+    authDomain: 'writeread-de965.firebaseapp.com',
+    storageBucket: 'writeread-de965.firebasestorage.app',
+    measurementId: 'G-WY0E2PYHJK',
   );
 }

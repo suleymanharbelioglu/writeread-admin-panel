@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:writeread_admin_panel/common/helper/images/storage_network_image.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_entity.dart';
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_image_address_row.dart';
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_info_row.dart';
@@ -31,15 +32,28 @@ class ComicHeaderSection extends StatelessWidget {
                       ),
                 ),
                 const SizedBox(height: 8),
-                ComicInfoRow(label: 'Comic ID', value: comic.comicId),
+                ComicInfoRow(label: 'ID', value: comic.comicId),
                 ComicImageAddressRow(
-                  label: 'Comic image address',
+                  label: 'Cover file',
                   url: imageUrl,
                 ),
                 ComicInfoRow(label: 'Category', value: comic.categoryName),
-                ComicInfoRow(label: 'Category ID', value: comic.categoryId),
                 ComicInfoRow(label: 'Likes', value: comic.likeCount.toString()),
                 ComicInfoRow(label: 'Reads', value: comic.readCount.toString()),
+                ComicInfoRow(
+                  label: 'Access',
+                  value: comic.isFree ? 'Free' : 'Paid',
+                ),
+                ComicInfoRow(
+                  label: 'Store Product ID',
+                  value: comic.productId.isEmpty ? 'Not set' : comic.productId,
+                ),
+                ComicInfoRow(
+                  label: 'Price',
+                  value: comic.isFree
+                      ? 'Free'
+                      : 'From App Store / Play Store',
+                ),
                 ComicInfoRow(
                   label: 'Sensitive',
                   value: comic.isSensitive ? 'Yes' : 'No',
@@ -50,7 +64,7 @@ class ComicHeaderSection extends StatelessWidget {
                 ),
                 ComicInfoRow(
                   label: 'Created',
-                  value: comic.createdDate.toDate().toIso8601String().split('T').first,
+                  value: comic.createdDate.toIso8601String().split('T').first,
                 ),
               ],
             ),
@@ -61,10 +75,10 @@ class ComicHeaderSection extends StatelessWidget {
             child: SizedBox(
               width: 240,
               height: 340,
-              child: Image.network(
-                imageUrl,
+              child: StorageNetworkImage(
+                url: imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Center(
+                errorWidget: const Center(
                   child: Icon(Icons.broken_image_outlined, size: 64),
                 ),
               ),

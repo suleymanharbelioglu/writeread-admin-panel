@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:writeread_admin_panel/domain/auth/usecase/is_admin.dart';
-import 'package:writeread_admin_panel/domain/auth/usecase/signout.dart';
+import 'package:writeread_admin_panel/common/helper/navigator/app_navigator.dart';
+import 'package:writeread_admin_panel/common/helper/ui/app_feedback.dart';
+import 'package:writeread_admin_panel/domain/auth/usecases/is_admin.dart';
+import 'package:writeread_admin_panel/domain/auth/usecases/signout.dart';
 import 'package:writeread_admin_panel/presentation/auth/page/signin.dart';
 import 'package:writeread_admin_panel/presentation/home/page/home.dart';
 import 'package:writeread_admin_panel/presentation/is_admin/bloc/is_admin_cubit.dart';
@@ -13,20 +15,12 @@ class IsAdminPage extends StatelessWidget {
 
   void _handleState(BuildContext context, IsAdminState state) {
     if (state is IsAdminSuccess) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You are an admin.')),
-      );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
+      AppFeedback.showSuccess(context, 'You are an admin.');
+      AppNavigator.pushReplacement(context, const HomePage());
     }
     if (state is IsAdminNotAdmin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(state.message)),
-      );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const SigninPage()),
-      );
+      AppFeedback.showError(context, state.message);
+      AppNavigator.pushReplacement(context, const SigninPage());
     }
   }
 
@@ -44,8 +38,21 @@ class IsAdminPage extends StatelessWidget {
             appBar: AppBar(title: const Text('Checking access')),
             body: Center(
               child: state is IsAdminLoading
-                  ? const CircularProgressIndicator()
-                  : const Text('Verifying admin...'),
+                  ? const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text(
+                          'Checking whether this account can manage comics…',
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    )
+                  : const Text(
+                      'Checking whether this account can manage comics…',
+                      textAlign: TextAlign.center,
+                    ),
             ),
           );
         },

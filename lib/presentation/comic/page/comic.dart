@@ -1,270 +1,158 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:writeread_admin_panel/common/helper/images/image_display.dart';
-import 'package:writeread_admin_panel/domain/chapter/entity/chapter_entity.dart';
+import 'package:writeread_admin_panel/common/helper/navigator/app_navigator.dart';
+import 'package:writeread_admin_panel/common/helper/ui/app_copy.dart';
+import 'package:writeread_admin_panel/common/helper/ui/app_feedback.dart';
+import 'package:writeread_admin_panel/common/widgets/loading_overlay.dart';
+import 'package:writeread_admin_panel/domain/chapter/usecases/add_chapter.dart';
+import 'package:writeread_admin_panel/domain/chapter/usecases/delete_all_chapter_images.dart';
+import 'package:writeread_admin_panel/domain/chapter/usecases/delete_last_chapter.dart';
+import 'package:writeread_admin_panel/domain/chapter/usecases/update_chapter.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_entity.dart';
-import 'package:writeread_admin_panel/domain/comic/usecase/update_comic_params.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/delete_comic.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/update_comic.dart';
+import 'package:writeread_admin_panel/presentation/comic/bloc/add_chapter_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/current_comic_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/current_comic_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/delete_chapter_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/delete_chapter_state.dart';
-import 'package:writeread_admin_panel/presentation/comic/bloc/add_chapter_cubit.dart';
-import 'package:writeread_admin_panel/presentation/comic/bloc/add_chapter_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/delete_comic_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/delete_comic_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/edit_chapter_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/edit_chapter_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/edit_comic_cubit.dart';
+import 'package:writeread_admin_panel/presentation/comic/bloc/edit_comic_form_cubit.dart';
+import 'package:writeread_admin_panel/presentation/comic/bloc/edit_comic_form_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/edit_comic_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_chapters_section.dart';
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_description_section.dart';
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_editable_header_section.dart';
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_header_section.dart';
-import 'package:writeread_admin_panel/presentation/comment/widget/comments_dialog.dart';
+import 'package:writeread_admin_panel/service_locator.dart';
 
 class ComicPage extends StatelessWidget {
   const ComicPage({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        BlocListener<DeleteComicCubit, DeleteComicState>(
-          listener: _onDeleteComicStateChanged,
-          child: BlocListener<DeleteChapterCubit, DeleteChapterState>(
-            listener: _onDeleteChapterStateChanged,
-            child: BlocListener<EditChapterCubit, EditChapterState>(
-              listener: _onEditChapterStateChanged,
-              child: BlocListener<EditComicCubit, EditComicState>(
-                listener: _onEditComicStateChanged,
-                child: BlocBuilder<CurrentComicCubit, CurrentComicState>(
-                  builder: (context, state) {
-                    if (state is! CurrentComicSet) {
-                      return _buildEmptyState(context);
-                    }
-                    return _ComicContent(comic: state.comic);
-                  },
-                ),
-              ),
-            ),
+  /// Feature-scoped providers for the comic detail flow.
+  static Widget route(ComicEntity comic) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => CurrentComicCubit(initialComic: comic)),
+        BlocProvider(
+          create: (_) => DeleteChapterCubit(
+            deleteLastChapterUseCase: sl<DeleteLastChapterUseCase>(),
           ),
         ),
-        const _ComicLoadingOverlay(),
+        BlocProvider(
+          create: (_) =>
+              DeleteComicCubit(deleteComicUseCase: sl<DeleteComicUseCase>()),
+        ),
+        BlocProvider(
+          create: (_) =>
+              AddChapterCubit(addChapterUseCase: sl<AddChapterUseCase>()),
+        ),
+        BlocProvider(
+          create: (_) =>
+              EditComicCubit(updateComicUseCase: sl<UpdateComicUseCase>()),
+        ),
+        BlocProvider(
+          create: (_) => EditChapterCubit(
+            updateChapterUseCase: sl<UpdateChapterUseCase>(),
+            deleteAllChapterImagesUseCase: sl<DeleteAllChapterImagesUseCase>(),
+          ),
+        ),
       ],
+      child: const ComicPage(),
     );
   }
 
-  void _onDeleteComicStateChanged(
-    BuildContext context,
-    DeleteComicState state,
-  ) {
-    if (state is DeleteComicSuccess) {
-      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
-      context.read<CurrentComicCubit>().clear();
-      if (context.mounted) Navigator.of(context).pop(true);
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Comic deleted')));
-      }
-    } else if (state is DeleteComicFailure) {
-      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(state.message),
-            backgroundColor: Theme.of(context).colorScheme.error,
+  @override
+  Widget build(BuildContext context) {
+    final isLoading =
+        context.watch<DeleteComicCubit>().state is DeleteComicLoading ||
+            context.watch<DeleteChapterCubit>().state is DeleteChapterLoading ||
+            context.watch<EditChapterCubit>().state is EditChapterLoading ||
+            context.watch<EditComicCubit>().state is EditComicLoading ||
+            context.watch<AddChapterCubit>().state.isLoading;
+
+    return LoadingOverlay(
+      isLoading: isLoading,
+      message: isLoading ? 'Please wait...' : null,
+      child: MultiBlocListener(
+        listeners: [
+          BlocListener<DeleteComicCubit, DeleteComicState>(
+            listener: (context, state) {
+              if (state is DeleteComicSuccess) {
+                context.read<CurrentComicCubit>().clear();
+                if (context.mounted) AppNavigator.pop(context, true);
+                if (context.mounted) {
+                  AppFeedback.showSuccess(context, 'Comic deleted');
+                }
+              } else if (state is DeleteComicFailure) {
+                if (context.mounted) {
+                  AppFeedback.showError(context, state.message);
+                }
+              }
+            },
           ),
-        );
-      }
-    }
-  }
-
-  void _onEditChapterStateChanged(
-    BuildContext context,
-    EditChapterState editChapterState,
-  ) {
-    if (editChapterState is EditChapterSuccess) {
-      _applyEditedChapterToCurrentComic(context, editChapterState);
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Chapter updated')));
-      }
-    } else if (editChapterState is EditChapterImagesDeleted) {
-      _applyImagesDeletedToCurrentComic(context, editChapterState.chapterId);
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('All images deleted')));
-      }
-    } else if (editChapterState is EditChapterFailure) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(editChapterState.message),
-            backgroundColor: Theme.of(context).colorScheme.error,
+          BlocListener<DeleteChapterCubit, DeleteChapterState>(
+            listener: (context, state) {
+              if (state is DeleteChapterSuccess) {
+                context.read<CurrentComicCubit>().removeLastChapter();
+                AppFeedback.showSuccess(context, 'Last chapter deleted');
+              } else if (state is DeleteChapterFailure) {
+                AppFeedback.showError(context, state.message);
+              }
+            },
           ),
-        );
-      }
-    }
-  }
-
-  void _applyEditedChapterToCurrentComic(
-    BuildContext context,
-    EditChapterSuccess state,
-  ) {
-    final currentState = context.read<CurrentComicCubit>().state;
-    if (currentState is! CurrentComicSet) return;
-    final comic = currentState.comic;
-    final index = comic.chapters.indexWhere(
-      (c) => c.chapterId == state.chapterId,
-    );
-    if (index < 0) return;
-    final chapter = comic.chapters[index];
-    final updatedChapter = ChapterEntity(
-      chapterId: chapter.chapterId,
-      comicId: chapter.comicId,
-      chapterName: chapter.chapterName,
-      pageCount: state.addedImageCount != null
-          ? chapter.pageCount + state.addedImageCount!
-          : chapter.pageCount,
-      createdDate: chapter.createdDate,
-      isVip: state.isVip ?? chapter.isVip,
-      musicUrl: state.musicUrl ?? chapter.musicUrl,
-    );
-    final newChapters = List<ChapterEntity>.from(comic.chapters);
-    newChapters[index] = updatedChapter;
-    context.read<CurrentComicCubit>().setComic(
-      ComicEntity(
-        comicId: comic.comicId,
-        title: comic.title,
-        description: comic.description,
-        image: comic.image,
-        isSensitive: comic.isSensitive,
-        likeCount: comic.likeCount,
-        readCount: comic.readCount,
-        chapterCount: comic.chapterCount,
-        createdDate: comic.createdDate,
-        categoryId: comic.categoryId,
-        categoryName: comic.categoryName,
-        chapters: newChapters,
+          BlocListener<EditChapterCubit, EditChapterState>(
+            listener: (context, state) {
+              final current = context.read<CurrentComicCubit>();
+              if (state is EditChapterSuccess) {
+                current.applyChapterEdit(
+                  chapterId: state.chapterId,
+                  isFreePreview: state.isFreePreview,
+                  addedImageCount: state.addedImageCount,
+                  musicUrl: state.musicUrl,
+                );
+                AppFeedback.showSuccess(context, 'Chapter updated');
+              } else if (state is EditChapterImagesDeleted) {
+                current.clearChapterImages(state.chapterId);
+                AppFeedback.showSuccess(context, 'All images deleted');
+              } else if (state is EditChapterFailure) {
+                AppFeedback.showError(context, state.message);
+              }
+            },
+          ),
+          BlocListener<EditComicCubit, EditComicState>(
+            listener: (context, state) {
+              if (state is EditComicSuccess) {
+                AppFeedback.showSuccess(context, 'Comic updated');
+              } else if (state is EditComicFailure) {
+                AppFeedback.showError(context, state.message);
+              }
+            },
+          ),
+        ],
+        child: BlocBuilder<CurrentComicCubit, CurrentComicState>(
+          builder: (context, state) {
+            if (state is! CurrentComicSet) {
+              return Scaffold(
+                appBar: AppBar(title: const Text('Comic')),
+                body: const Center(child: Text('No comic selected')),
+              );
+            }
+            return BlocProvider(
+              key: ValueKey(state.comic.comicId),
+              create: (ctx) => EditComicFormCubit(
+                editComicCubit: ctx.read<EditComicCubit>(),
+              )..resetFromComic(state.comic),
+              child: _ComicContent(comic: state.comic),
+            );
+          },
+        ),
       ),
-    );
-  }
-
-  void _applyImagesDeletedToCurrentComic(
-    BuildContext context,
-    String chapterId,
-  ) {
-    final currentState = context.read<CurrentComicCubit>().state;
-    if (currentState is! CurrentComicSet) return;
-    final comic = currentState.comic;
-    final index = comic.chapters.indexWhere((c) => c.chapterId == chapterId);
-    if (index < 0) return;
-    final chapter = comic.chapters[index];
-    final updatedChapter = ChapterEntity(
-      chapterId: chapter.chapterId,
-      comicId: chapter.comicId,
-      chapterName: chapter.chapterName,
-      pageCount: 0,
-      createdDate: chapter.createdDate,
-      isVip: chapter.isVip,
-      musicUrl: chapter.musicUrl,
-    );
-    final newChapters = List<ChapterEntity>.from(comic.chapters);
-    newChapters[index] = updatedChapter;
-    context.read<CurrentComicCubit>().setComic(
-      ComicEntity(
-        comicId: comic.comicId,
-        title: comic.title,
-        description: comic.description,
-        image: comic.image,
-        isSensitive: comic.isSensitive,
-        likeCount: comic.likeCount,
-        readCount: comic.readCount,
-        chapterCount: comic.chapterCount,
-        createdDate: comic.createdDate,
-        categoryId: comic.categoryId,
-        categoryName: comic.categoryName,
-        chapters: newChapters,
-      ),
-    );
-  }
-
-  void _onDeleteChapterStateChanged(
-    BuildContext context,
-    DeleteChapterState deleteState,
-  ) {
-    if (deleteState is DeleteChapterSuccess) {
-      _applyDeletedChapterToCurrentComic(context);
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Last chapter deleted')));
-      }
-    } else if (deleteState is DeleteChapterFailure) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(deleteState.message),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
-  }
-
-  void _onEditComicStateChanged(
-    BuildContext context,
-    EditComicState editState,
-  ) {
-    if (editState is EditComicSuccess) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Comic updated')));
-      }
-    } else if (editState is EditComicFailure) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(editState.message),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
-  }
-
-  void _applyDeletedChapterToCurrentComic(BuildContext context) {
-    final currentState = context.read<CurrentComicCubit>().state;
-    if (currentState is! CurrentComicSet) return;
-    final comic = currentState.comic;
-    if (comic.chapters.isEmpty) return;
-    final newChapters = comic.chapters.sublist(0, comic.chapters.length - 1);
-    context.read<CurrentComicCubit>().setComic(
-      ComicEntity(
-        comicId: comic.comicId,
-        title: comic.title,
-        description: comic.description,
-        image: comic.image,
-        isSensitive: comic.isSensitive,
-        likeCount: comic.likeCount,
-        readCount: comic.readCount,
-        chapterCount: newChapters.length,
-        createdDate: comic.createdDate,
-        categoryId: comic.categoryId,
-        categoryName: comic.categoryName,
-        chapters: newChapters,
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Comic')),
-      body: const Center(child: Text('No comic selected')),
     );
   }
 }
@@ -279,20 +167,18 @@ class _ComicContent extends StatefulWidget {
 }
 
 class _ComicContentState extends State<_ComicContent> {
-  bool _isEditing = false;
-  late TextEditingController _titleController;
-  late TextEditingController _descriptionController;
-  List<int>? _newImageBytes;
-  late bool _isSensitive;
+  late final TextEditingController _titleController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _productIdController;
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController(text: widget.comic.title);
-    _descriptionController = TextEditingController(
-      text: widget.comic.description,
-    );
-    _isSensitive = widget.comic.isSensitive;
+    _descriptionController =
+        TextEditingController(text: widget.comic.description);
+    _productIdController =
+        TextEditingController(text: widget.comic.productId);
   }
 
   @override
@@ -301,9 +187,8 @@ class _ComicContentState extends State<_ComicContent> {
     if (oldWidget.comic.comicId != widget.comic.comicId) {
       _titleController.text = widget.comic.title;
       _descriptionController.text = widget.comic.description;
-      _isSensitive = widget.comic.isSensitive;
-      _newImageBytes = null;
-      _isEditing = false;
+      _productIdController.text = widget.comic.productId;
+      context.read<EditComicFormCubit>().resetFromComic(widget.comic);
     }
   }
 
@@ -311,27 +196,8 @@ class _ComicContentState extends State<_ComicContent> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _productIdController.dispose();
     super.dispose();
-  }
-
-  void _startEditing() {
-    setState(() {
-      _isEditing = true;
-      _titleController.text = widget.comic.title;
-      _descriptionController.text = widget.comic.description;
-      _isSensitive = widget.comic.isSensitive;
-      _newImageBytes = null;
-    });
-  }
-
-  void _cancelEditing() {
-    setState(() {
-      _isEditing = false;
-      _titleController.text = widget.comic.title;
-      _descriptionController.text = widget.comic.description;
-      _isSensitive = widget.comic.isSensitive;
-      _newImageBytes = null;
-    });
   }
 
   Future<void> _confirmAndDeleteComic() async {
@@ -340,15 +206,16 @@ class _ComicContentState extends State<_ComicContent> {
       builder: (ctx) => AlertDialog(
         title: const Text('Delete comic'),
         content: const Text(
-          'This will permanently delete the comic and all its chapters and images from the database and storage. Continue?',
+          'This permanently deletes the comic, all chapters, page images, '
+          'and cover files from the database and storage. This cannot be undone.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => AppNavigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () => AppNavigator.pop(ctx, true),
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
@@ -358,65 +225,7 @@ class _ComicContentState extends State<_ComicContent> {
       ),
     );
     if (ok != true || !mounted) return;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => const PopScope(
-        canPop: false,
-        child: Center(child: CircularProgressIndicator()),
-      ),
-    );
-    if (!mounted) return;
     context.read<DeleteComicCubit>().deleteComic(widget.comic.comicId);
-  }
-
-  void _saveEditing() {
-    final title = _titleController.text.trim();
-    if (title.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Title is required')));
-      return;
-    }
-    context.read<EditComicCubit>().updateComic(
-      UpdateComicParams(
-        comicId: widget.comic.comicId,
-        title: title,
-        description: _descriptionController.text.trim(),
-        isSensitive: _isSensitive,
-        oldImageFilename: widget.comic.image.isNotEmpty
-            ? widget.comic.image
-            : null,
-        newImageBytes: _newImageBytes,
-      ),
-    );
-  }
-
-  void _onEditSuccess() {
-    final comic = widget.comic;
-    final newImage = _newImageBytes != null && _newImageBytes!.isNotEmpty
-        ? '${comic.comicId}_cover.jpg'
-        : comic.image;
-    context.read<CurrentComicCubit>().setComic(
-      ComicEntity(
-        comicId: comic.comicId,
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim(),
-        image: newImage,
-        isSensitive: _isSensitive,
-        likeCount: comic.likeCount,
-        readCount: comic.readCount,
-        chapterCount: comic.chapterCount,
-        createdDate: comic.createdDate,
-        categoryId: comic.categoryId,
-        categoryName: comic.categoryName,
-        chapters: comic.chapters,
-      ),
-    );
-    setState(() {
-      _isEditing = false;
-      _newImageBytes = null;
-    });
   }
 
   @override
@@ -426,168 +235,161 @@ class _ComicContentState extends State<_ComicContent> {
         ? ImageDisplayHelper.generateComicImageURL(comic.image)
         : ImageDisplayHelper.generateComicImageURL(comic.title);
 
-    return BlocListener<EditComicCubit, EditComicState>(
-      listener: (context, state) {
-        if (state is EditComicSuccess) _onEditSuccess();
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(_isEditing ? 'Edit comic' : comic.title),
-          actions: [
-            if (_isEditing) ...[
-              TextButton(
-                onPressed: _cancelEditing,
-                child: const Text('Cancel'),
-              ),
-              BlocBuilder<EditComicCubit, EditComicState>(
-                builder: (context, state) {
-                  final loading = state is EditComicLoading;
-                  return FilledButton(
-                    onPressed: loading ? null : _saveEditing,
-                    child: loading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Save'),
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<EditComicCubit, EditComicState>(
+          listener: (context, state) {
+            if (state is EditComicSuccess) {
+              context.read<EditComicFormCubit>().applyPersistSuccess(
+                    currentComic: context.read<CurrentComicCubit>(),
+                    updatedComic: state.comic,
                   );
-                },
-              ),
-              const SizedBox(width: 8),
-            ] else ...[
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: _confirmAndDeleteComic,
-                tooltip: 'Delete comic',
-              ),
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: _startEditing,
-                tooltip: 'Edit comic',
-              ),
-            ],
-          ],
+            }
+          },
         ),
-        body: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (_isEditing)
-                ComicEditableHeaderSection(
-                  comic: comic,
-                  imageUrl: imageUrl,
-                  titleController: _titleController,
-                  onImagePicked: (bytes) =>
-                      setState(() => _newImageBytes = bytes),
-                  newImageBytes: _newImageBytes,
-                )
-              else
-                ComicHeaderSection(comic: comic, imageUrl: imageUrl),
-              if (!_isEditing) _CommentsActions(comic: comic),
-              if (_isEditing)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: _descriptionController,
-                        decoration: const InputDecoration(
-                          labelText: 'Description',
-                          border: OutlineInputBorder(),
-                          alignLabelWithHint: true,
-                        ),
-                        maxLines: 4,
-                      ),
-                      const SizedBox(height: 12),
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Sensitive content'),
-                        subtitle: const Text('Mark this comic as sensitive/explicit'),
-                        value: _isSensitive,
-                        onChanged: (v) => setState(() => _isSensitive = v),
-                      ),
-                    ],
+        BlocListener<EditComicFormCubit, EditComicFormState>(
+          listenWhen: (prev, curr) =>
+              curr.validationError != null &&
+              curr.validationError != prev.validationError,
+          listener: (context, state) {
+            if (state.validationError != null) {
+              AppFeedback.showError(context, state.validationError!);
+            }
+          },
+        ),
+      ],
+      child: BlocBuilder<EditComicFormCubit, EditComicFormState>(
+        builder: (context, form) {
+          final formCubit = context.read<EditComicFormCubit>();
+          return Scaffold(
+            appBar: AppBar(
+              title: Text(form.isEditing ? 'Edit comic' : comic.title),
+              actions: [
+                if (form.isEditing) ...[
+                  TextButton(
+                    onPressed: () {
+                      _titleController.text = comic.title;
+                      _descriptionController.text = comic.description;
+                      _productIdController.text = comic.productId;
+                      formCubit.cancel(comic);
+                    },
+                    child: const Text('Cancel'),
                   ),
-                )
-              else
-                ComicDescriptionSection(description: comic.description),
-              ComicChaptersSection(comic: comic),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CommentsActions extends StatelessWidget {
-  const _CommentsActions({required this.comic});
-
-  final ComicEntity comic;
-
-  Future<void> _openComicComments(BuildContext context) async {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => CommentsDialog.comic(
-        comicId: comic.comicId,
-        comicTitle: comic.title,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          FilledButton.tonalIcon(
-            onPressed: () => _openComicComments(context),
-            icon: const Icon(Icons.comment_outlined),
-            label: const Text('Comic Comments'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Tam ekran loading overlay; comic sayfasındaki bekleme gerektiren işlemler için.
-class _ComicLoadingOverlay extends StatelessWidget {
-  const _ComicLoadingOverlay();
-
-  @override
-  Widget build(BuildContext context) {
-    final deleteComicLoading =
-        context.watch<DeleteComicCubit>().state is DeleteComicLoading;
-    final deleteChapterLoading =
-        context.watch<DeleteChapterCubit>().state is DeleteChapterLoading;
-    final editChapterLoading =
-        context.watch<EditChapterCubit>().state is EditChapterLoading;
-    final editComicLoading =
-        context.watch<EditComicCubit>().state is EditComicLoading;
-    final addChapterLoading =
-        context.watch<AddChapterCubit>().state is AddChapterLoading;
-    final isLoading = deleteComicLoading ||
-        deleteChapterLoading ||
-        editChapterLoading ||
-        editComicLoading ||
-        addChapterLoading;
-
-    if (!isLoading) return const SizedBox.shrink();
-
-    return Positioned.fill(
-      child: Container(
-        color: Colors.black54,
-        child: const Center(
-          child: CircularProgressIndicator(
-            color: Colors.white,
-            strokeWidth: 3,
-          ),
-        ),
+                  BlocBuilder<EditComicCubit, EditComicState>(
+                    builder: (context, editState) {
+                      final loading = editState is EditComicLoading;
+                      return FilledButton(
+                        onPressed: loading
+                            ? null
+                            : () => formCubit.save(
+                                  comic: comic,
+                                  title: _titleController.text,
+                                  description: _descriptionController.text,
+                                  productId: _productIdController.text,
+                                ),
+                        child: loading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Save'),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                ] else ...[
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: _confirmAndDeleteComic,
+                    tooltip: 'Delete comic',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: () {
+                      _titleController.text = comic.title;
+                      _descriptionController.text = comic.description;
+                      _productIdController.text = comic.productId;
+                      formCubit.startEdit(comic);
+                    },
+                    tooltip: 'Edit comic',
+                  ),
+                ],
+              ],
+            ),
+            body: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (form.isEditing)
+                    ComicEditableHeaderSection(
+                      comic: comic,
+                      imageUrl: imageUrl,
+                      titleController: _titleController,
+                      onImagePicked: formCubit.setImageBytes,
+                      newImageBytes: form.newImageBytes,
+                    )
+                  else
+                    ComicHeaderSection(comic: comic, imageUrl: imageUrl),
+                  if (form.isEditing)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _descriptionController,
+                            decoration: const InputDecoration(
+                              labelText: 'Description',
+                              border: OutlineInputBorder(),
+                              alignLabelWithHint: true,
+                              helperText: AppCopy.descriptionHelper,
+                            ),
+                            maxLines: 4,
+                          ),
+                          const SizedBox(height: 12),
+                          SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Free comic'),
+                            subtitle: Text(
+                              form.isFree
+                                  ? AppCopy.freeComicOn
+                                  : AppCopy.freeComicOff,
+                            ),
+                            value: form.isFree,
+                            onChanged: formCubit.setFree,
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _productIdController,
+                            decoration: const InputDecoration(
+                              labelText: 'Store Product ID (IAP) *',
+                              border: OutlineInputBorder(),
+                              hintText: AppCopy.productIdHint,
+                              helperText: AppCopy.productIdHelper,
+                              helperMaxLines: 4,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Sensitive content'),
+                            subtitle: const Text(AppCopy.sensitiveSubtitle),
+                            value: form.isSensitive,
+                            onChanged: formCubit.setSensitive,
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ComicDescriptionSection(description: comic.description),
+                  ComicChaptersSection(comic: comic),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

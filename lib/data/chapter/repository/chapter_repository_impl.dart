@@ -1,43 +1,49 @@
 import 'package:dartz/dartz.dart';
+import 'package:writeread_admin_panel/data/chapter/model/chapter_model.dart';
 import 'package:writeread_admin_panel/data/chapter/source/chapter_firebase_service.dart';
-import 'package:writeread_admin_panel/domain/chapter/repository/chapter.dart';
-import 'package:writeread_admin_panel/service_locator.dart';
+import 'package:writeread_admin_panel/domain/chapter/entity/chapter_entity.dart';
+import 'package:writeread_admin_panel/domain/chapter/repository/chapter_repository.dart';
 
 class ChapterRepositoryImpl extends ChapterRepository {
+  ChapterRepositoryImpl(this._chapterFirebaseService);
+
+  final ChapterFirebaseService _chapterFirebaseService;
+
   @override
-  Future<Either<String, void>> deleteLastChapter(String comicId) async {
-    return sl<ChapterFirebaseService>().deleteLastChapter(comicId);
+  Future<Either<String, void>> deleteLastChapter(String comicId) {
+    return _chapterFirebaseService.deleteLastChapter(comicId);
   }
 
   @override
-  Future<Either<String, String?>> addChapter(
+  Future<Either<String, ChapterEntity>> addChapter(
     String comicId,
     String chapterName,
     List<List<int>> imageBytesList, {
-    bool isVip = true,
     List<int>? musicBytes,
+    bool isFreePreview = false,
   }) async {
-    return sl<ChapterFirebaseService>().addChapter(
+    final result = await _chapterFirebaseService.addChapter(
       comicId,
       chapterName,
       imageBytesList,
-      isVip: isVip,
       musicBytes: musicBytes,
+      isFreePreview: isFreePreview,
     );
+    return result.map((model) => model.toEntity());
   }
 
   @override
   Future<Either<String, String?>> updateChapter(
     String comicId,
     String chapterId, {
-    bool? isVip,
+    bool? isFreePreview,
     List<List<int>>? additionalImageBytesList,
     List<int>? musicBytes,
-  }) async {
-    return sl<ChapterFirebaseService>().updateChapter(
+  }) {
+    return _chapterFirebaseService.updateChapter(
       comicId,
       chapterId,
-      isVip: isVip,
+      isFreePreview: isFreePreview,
       additionalImageBytesList: additionalImageBytesList,
       musicBytes: musicBytes,
     );
@@ -47,10 +53,7 @@ class ChapterRepositoryImpl extends ChapterRepository {
   Future<Either<String, void>> deleteAllChapterImages(
     String comicId,
     String chapterId,
-  ) async {
-    return sl<ChapterFirebaseService>().deleteAllChapterImages(
-      comicId,
-      chapterId,
-    );
+  ) {
+    return _chapterFirebaseService.deleteAllChapterImages(comicId, chapterId);
   }
 }

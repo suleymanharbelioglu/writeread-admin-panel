@@ -14,12 +14,12 @@ final class EditChapterLoading extends EditChapterState {
 final class EditChapterSuccess extends EditChapterState {
   const EditChapterSuccess({
     required this.chapterId,
-    this.isVip,
+    this.isFreePreview,
     this.addedImageCount,
     this.musicUrl,
   });
   final String chapterId;
-  final bool? isVip;
+  final bool? isFreePreview;
 
   /// Number of images added (so UI can compute new pageCount = current + this).
   final int? addedImageCount;

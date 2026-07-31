@@ -1,39 +1,95 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:writeread_admin_panel/domain/comic/usecase/add_comic.dart';
-import 'package:writeread_admin_panel/domain/comic/usecase/add_comic_params.dart';
+import 'package:writeread_admin_panel/common/helper/ui/app_log.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/add_comic.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/add_comic_params.dart';
 import 'package:writeread_admin_panel/presentation/add_comic/bloc/add_comic_state.dart';
 
 class AddComicCubit extends Cubit<AddComicState> {
   AddComicCubit({required AddComicUseCase addComicUseCase})
-    : _addComicUseCase = addComicUseCase,
-      super(const AddComicInitial());
+      : _addComicUseCase = addComicUseCase,
+        super(const AddComicState());
 
   final AddComicUseCase _addComicUseCase;
 
-  Future<void> addComic(AddComicParams params) async {
+  void setFree(bool value) {
+    if (state.isLoading) return;
+    emit(state.copyWith(isFree: value, clearError: true));
+  }
+
+  void setSensitive(bool value) {
+    if (state.isLoading) return;
+    emit(state.copyWith(isSensitive: value, clearError: true));
+  }
+
+  void setImageBytes(List<int>? bytes) {
+    if (state.isLoading) return;
+    if (bytes == null || bytes.isEmpty) {
+      emit(state.copyWith(clearImage: true, clearError: true));
+      return;
+    }
+    emit(state.copyWith(imageBytes: bytes, clearError: true));
+  }
+
+  Future<void> submit({
+    required String title,
+    required String description,
+    required String categoryName,
+    required String productId,
+  }) async {
+    if (state.isLoading) return;
+
+    emit(
+      state.copyWith(
+        status: AddComicStatus.loading,
+        clearError: true,
+        clearComic: true,
+      ),
+    );
+
     try {
-      print("CUBIT: EMIT LOADING");
-      emit(const AddComicLoading());
-
-      print("CUBIT: CALLING USECASE");
-      final result = await _addComicUseCase.call(params: params);
-
-      print("CUBIT: USECASE RETURNED");
-
+      final result = await _addComicUseCase.call(
+        params: AddComicParams(
+          title: title.trim(),
+          description: description.trim(),
+          categoryName: categoryName.trim(),
+          isSensitive: state.isSensitive,
+          isFree: state.isFree,
+          productId: productId.trim(),
+          imageBytes: state.imageBytes,
+        ),
+      );
+      if (isClosed) return;
       result.fold(
         (message) {
-          print("CUBIT: EMIT FAILURE -> $message");
-          emit(AddComicFailure(message));
+          AppLog.info('AddComic failure: $message');
+          emit(
+            state.copyWith(
+              status: AddComicStatus.failure,
+              errorMessage: message,
+            ),
+          );
         },
         (comic) {
-          print("CUBIT: EMIT SUCCESS");
-          emit(AddComicSuccess(comic: comic));
+          AppLog.info('AddComic success: ${comic.comicId}');
+          emit(
+            state.copyWith(
+              status: AddComicStatus.success,
+              comic: comic,
+              clearError: true,
+            ),
+          );
+          AppLog.info('AddComic emit done, status=${state.status}');
         },
       );
     } catch (e, stackTrace) {
-      print("CUBIT: UNEXPECTED ERROR -> $e");
-      print(stackTrace);
-      emit(AddComicFailure('Unexpected error: $e'));
+      AppLog.error('AddComicCubit.submit', e, stackTrace);
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          status: AddComicStatus.failure,
+          errorMessage: 'Unexpected error while adding the comic',
+        ),
+      );
     }
   }
 }

@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 
 class AppNavigator {
-  static void pushReplacement(BuildContext context, Widget widget) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => widget),
-    );
+  const AppNavigator._();
+
+  static Future<T?> push<T>(BuildContext context, Widget page) {
+    return Navigator.of(context).push<T>(_route<T>(page));
   }
 
-  static void push(BuildContext context, Widget widget) {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => widget));
+  static Future<T?> pushReplacement<T>(BuildContext context, Widget page) {
+    return Navigator.of(context).pushReplacement<T, dynamic>(_route<T>(page));
   }
 
-  static void pushAndRemove(BuildContext context, Widget widget) {
-    Navigator.pushAndRemoveUntil(
+  static Future<T?> pushAndRemove<T>(BuildContext context, Widget page) {
+    return Navigator.of(
       context,
-      MaterialPageRoute(builder: (context) => widget),
-      (Route<dynamic> route) => false,
-    );
+    ).pushAndRemoveUntil<T>(_route<T>(page), (route) => false);
   }
+
+  static void pop<T>(BuildContext context, [T? result]) {
+    Navigator.of(context).pop<T>(result);
+  }
+
+  static MaterialPageRoute<T> _route<T>(Widget page) =>
+      MaterialPageRoute<T>(builder: (_) => page);
 }

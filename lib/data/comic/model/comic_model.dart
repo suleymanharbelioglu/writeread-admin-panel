@@ -8,10 +8,12 @@ class ComicModel {
   final String description;
   final String image;
   final bool isSensitive;
+  final bool isFree;
+  final String productId;
   final int likeCount;
   final int readCount;
-  final int chapterCount; // 🔥 eklendi
-  final Timestamp createdDate;
+  final int chapterCount;
+  final DateTime createdDate;
   final String categoryId;
   final String categoryName;
   final List<ChapterModel> chapters;
@@ -22,9 +24,11 @@ class ComicModel {
     required this.description,
     required this.image,
     required this.isSensitive,
+    this.isFree = true,
+    this.productId = '',
     required this.likeCount,
     required this.readCount,
-    required this.chapterCount, // 🔥 constructor
+    required this.chapterCount,
     required this.createdDate,
     required this.categoryId,
     required this.categoryName,
@@ -33,45 +37,63 @@ class ComicModel {
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
-      "comicId": comicId,
-      "title": title,
-      "description": description,
-      "image": image,
-      "isSensitive": isSensitive,
-      "likeCount": likeCount,
-      "readCount": readCount,
-      "chapterCount": chapterCount, // 🔥 map
-      "createdDate": createdDate,
-      "categoryId": categoryId,
-      "categoryName": categoryName,
-      "chapters": chapters.map((c) => c.toMap()).toList(),
+      'comicId': comicId,
+      'title': title,
+      'description': description,
+      'image': image,
+      'isSensitive': isSensitive,
+      'isFree': isFree,
+      'productId': productId,
+      'likeCount': likeCount,
+      'readCount': readCount,
+      'chapterCount': chapterCount,
+      'createdDate': Timestamp.fromDate(createdDate),
+      'categoryId': categoryId,
+      'categoryName': categoryName,
+      'chapters': chapters.map((c) => c.toMap()).toList(),
     };
   }
 
   factory ComicModel.fromMap(Map<String, dynamic> map) {
+    final productId = map['productId'] as String? ?? '';
+    final isFree = map.containsKey('isFree')
+        ? (map['isFree'] as bool? ?? true)
+        : productId.isEmpty;
     return ComicModel(
-      comicId: map["comicId"] as String,
-      title: map["title"] as String,
-      description: map["description"] as String,
-      image: map["image"] as String,
-      isSensitive: map["isSensitive"] as bool? ?? false,
-      likeCount: map["likeCount"] as int,
-      readCount: map["readCount"] as int? ?? 0,
-      chapterCount: map["chapterCount"] as int, // 🔥 fromMap
-      createdDate: map["createdDate"] as Timestamp,
-      categoryId: map["categoryId"] as String,
-      categoryName: map["categoryName"] as String,
-      chapters:
-          (map["chapters"] as List<dynamic>?)
-              ?.map((c) => ChapterModel.fromMap(c))
+      comicId: map['comicId'] as String? ?? '',
+      title: map['title'] as String? ?? '',
+      description: map['description'] as String? ?? '',
+      image: map['image'] as String? ?? '',
+      isSensitive: map['isSensitive'] as bool? ?? false,
+      isFree: isFree,
+      productId: productId,
+      likeCount: (map['likeCount'] as num?)?.toInt() ?? 0,
+      readCount: (map['readCount'] as num?)?.toInt() ?? 0,
+      chapterCount: (map['chapterCount'] as num?)?.toInt() ?? 0,
+      createdDate: _parseDate(map['createdDate']),
+      categoryId: map['categoryId'] as String? ?? '',
+      categoryName: map['categoryName'] as String? ?? '',
+      chapters: (map['chapters'] as List<dynamic>?)
+              ?.map(
+                (c) =>
+                    ChapterModel.fromMap(Map<String, dynamic>.from(c as Map)),
+              )
               .toList() ??
           [],
     );
   }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) {
+      return DateTime.tryParse(value) ?? DateTime.now();
+    }
+    return DateTime.now();
+  }
 }
 
-// ComicModel -> ComicEntity
-extension ComicXModel on ComicModel {
+extension ComicModelX on ComicModel {
   ComicEntity toEntity() {
     return ComicEntity(
       comicId: comicId,
@@ -79,9 +101,11 @@ extension ComicXModel on ComicModel {
       description: description,
       image: image,
       isSensitive: isSensitive,
+      isFree: isFree,
+      productId: productId,
       likeCount: likeCount,
       readCount: readCount,
-      chapterCount: chapterCount, // 🔥
+      chapterCount: chapterCount,
       createdDate: createdDate,
       categoryId: categoryId,
       categoryName: categoryName,
@@ -90,22 +114,23 @@ extension ComicXModel on ComicModel {
   }
 }
 
-// ComicEntity -> ComicModel
-extension ComicXEntity on ComicEntity {
-  ComicModel fromEntity() {
+extension ComicEntityX on ComicEntity {
+  ComicModel toModel() {
     return ComicModel(
       comicId: comicId,
       title: title,
       description: description,
       image: image,
       isSensitive: isSensitive,
+      isFree: isFree,
+      productId: productId,
       likeCount: likeCount,
       readCount: readCount,
-      chapterCount: chapterCount, // 🔥
+      chapterCount: chapterCount,
       createdDate: createdDate,
       categoryId: categoryId,
       categoryName: categoryName,
-      chapters: chapters.map((c) => c.fromEntity()).toList(),
+      chapters: chapters.map((c) => c.toModel()).toList(),
     );
   }
 }

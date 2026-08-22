@@ -9,6 +9,7 @@ abstract class ComicRepository {
     String description,
     String categoryName, {
     required bool isSensitive,
+    required String contentType,
     required bool isFree,
     required String productId,
     List<int>? imageBytes,
@@ -19,6 +20,7 @@ abstract class ComicRepository {
     required String title,
     required String description,
     required bool isSensitive,
+    required String contentType,
     required bool isFree,
     required String productId,
     String? oldImageFilename,

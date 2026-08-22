@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:writeread_admin_panel/common/helper/images/storage_network_image.dart';
+import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_entity.dart';
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_image_address_row.dart';
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_info_row.dart';
@@ -38,6 +39,10 @@ class ComicHeaderSection extends StatelessWidget {
                   url: imageUrl,
                 ),
                 ComicInfoRow(label: 'Category', value: comic.categoryName),
+                ComicInfoRow(
+                  label: 'Content type',
+                  value: ComicContentType.label(comic.contentType),
+                ),
                 ComicInfoRow(label: 'Likes', value: comic.likeCount.toString()),
                 ComicInfoRow(label: 'Reads', value: comic.readCount.toString()),
                 ComicInfoRow(

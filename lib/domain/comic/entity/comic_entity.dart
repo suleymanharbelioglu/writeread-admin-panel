@@ -1,4 +1,5 @@
 import 'package:writeread_admin_panel/domain/chapter/entity/chapter_entity.dart';
+import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
 
 class ComicEntity {
   final String comicId;
@@ -6,6 +7,7 @@ class ComicEntity {
   final String description;
   final String image;
   final bool isSensitive;
+  final String contentType;
   /// When true, all chapters are unlocked. When false, purchase (productId) is required.
   final bool isFree;
   /// App Store / Play Store IAP product ID (used when [isFree] is false).
@@ -24,6 +26,7 @@ class ComicEntity {
     required this.description,
     required this.image,
     required this.isSensitive,
+    this.contentType = ComicContentType.comic,
     this.isFree = true,
     this.productId = '',
     required this.likeCount,
@@ -41,6 +44,7 @@ class ComicEntity {
     String? description,
     String? image,
     bool? isSensitive,
+    String? contentType,
     bool? isFree,
     String? productId,
     int? likeCount,
@@ -57,6 +61,7 @@ class ComicEntity {
       description: description ?? this.description,
       image: image ?? this.image,
       isSensitive: isSensitive ?? this.isSensitive,
+      contentType: contentType ?? this.contentType,
       isFree: isFree ?? this.isFree,
       productId: productId ?? this.productId,
       likeCount: likeCount ?? this.likeCount,

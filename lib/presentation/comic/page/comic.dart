@@ -9,6 +9,7 @@ import 'package:writeread_admin_panel/domain/chapter/usecases/add_chapter.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecases/delete_all_chapter_images.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecases/delete_last_chapter.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecases/update_chapter.dart';
+import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_entity.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/delete_comic.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/update_comic.dart';
@@ -347,6 +348,26 @@ class _ComicContentState extends State<_ComicContent> {
                               helperText: AppCopy.descriptionHelper,
                             ),
                             maxLines: 4,
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            initialValue: ComicContentType.parse(form.contentType),
+                            decoration: const InputDecoration(
+                              labelText: 'Content type',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: ComicContentType.values
+                                .map(
+                                  (type) => DropdownMenuItem(
+                                    value: type,
+                                    child: Text(ComicContentType.label(type)),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              formCubit.setContentType(value);
+                            },
                           ),
                           const SizedBox(height: 12),
                           SwitchListTile.adaptive(

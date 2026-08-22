@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_entity.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/update_comic_params.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/current_comic_cubit.dart';
@@ -17,6 +18,7 @@ class EditComicFormCubit extends Cubit<EditComicFormState> {
     emit(
       EditComicFormState(
         isEditing: true,
+        contentType: ComicContentType.parse(comic.contentType),
         isFree: comic.isFree,
         isSensitive: comic.isSensitive,
       ),
@@ -27,6 +29,7 @@ class EditComicFormCubit extends Cubit<EditComicFormState> {
     emit(
       EditComicFormState(
         isEditing: false,
+        contentType: ComicContentType.parse(comic.contentType),
         isFree: comic.isFree,
         isSensitive: comic.isSensitive,
       ),
@@ -37,10 +40,18 @@ class EditComicFormCubit extends Cubit<EditComicFormState> {
     emit(
       EditComicFormState(
         isEditing: false,
+        contentType: ComicContentType.parse(comic.contentType),
         isFree: comic.isFree,
         isSensitive: comic.isSensitive,
       ),
     );
+  }
+
+  void setContentType(String value) {
+    emit(state.copyWith(
+      contentType: ComicContentType.parse(value),
+      clearValidation: true,
+    ));
   }
 
   void setFree(bool value) {
@@ -72,6 +83,7 @@ class EditComicFormCubit extends Cubit<EditComicFormState> {
         title: title.trim(),
         description: description.trim(),
         isSensitive: state.isSensitive,
+        contentType: state.contentType,
         isFree: state.isFree,
         productId: productId.trim(),
         oldImageFilename: comic.image.isNotEmpty ? comic.image : null,
@@ -89,6 +101,7 @@ class EditComicFormCubit extends Cubit<EditComicFormState> {
     emit(
       EditComicFormState(
         isEditing: false,
+        contentType: ComicContentType.parse(updatedComic.contentType),
         isFree: updatedComic.isFree,
         isSensitive: updatedComic.isSensitive,
       ),

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:writeread_admin_panel/data/chapter/model/chapter_model.dart';
+import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_entity.dart';
 
 class ComicModel {
@@ -8,6 +9,7 @@ class ComicModel {
   final String description;
   final String image;
   final bool isSensitive;
+  final String contentType;
   final bool isFree;
   final String productId;
   final int likeCount;
@@ -24,6 +26,7 @@ class ComicModel {
     required this.description,
     required this.image,
     required this.isSensitive,
+    this.contentType = ComicContentType.comic,
     this.isFree = true,
     this.productId = '',
     required this.likeCount,
@@ -42,6 +45,7 @@ class ComicModel {
       'description': description,
       'image': image,
       'isSensitive': isSensitive,
+      'contentType': contentType,
       'isFree': isFree,
       'productId': productId,
       'likeCount': likeCount,
@@ -65,6 +69,7 @@ class ComicModel {
       description: map['description'] as String? ?? '',
       image: map['image'] as String? ?? '',
       isSensitive: map['isSensitive'] as bool? ?? false,
+      contentType: ComicContentType.parse(map['contentType']),
       isFree: isFree,
       productId: productId,
       likeCount: (map['likeCount'] as num?)?.toInt() ?? 0,
@@ -101,6 +106,7 @@ extension ComicModelX on ComicModel {
       description: description,
       image: image,
       isSensitive: isSensitive,
+      contentType: contentType,
       isFree: isFree,
       productId: productId,
       likeCount: likeCount,
@@ -122,6 +128,7 @@ extension ComicEntityX on ComicEntity {
       description: description,
       image: image,
       isSensitive: isSensitive,
+      contentType: contentType,
       isFree: isFree,
       productId: productId,
       likeCount: likeCount,

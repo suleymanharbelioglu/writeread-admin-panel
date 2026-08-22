@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:writeread_admin_panel/common/helper/ui/app_log.dart';
+import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/add_comic.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/add_comic_params.dart';
 import 'package:writeread_admin_panel/presentation/add_comic/bloc/add_comic_state.dart';
@@ -10,6 +11,16 @@ class AddComicCubit extends Cubit<AddComicState> {
         super(const AddComicState());
 
   final AddComicUseCase _addComicUseCase;
+
+  void setContentType(String value) {
+    if (state.isLoading) return;
+    emit(
+      state.copyWith(
+        contentType: ComicContentType.parse(value),
+        clearError: true,
+      ),
+    );
+  }
 
   void setFree(bool value) {
     if (state.isLoading) return;
@@ -53,6 +64,7 @@ class AddComicCubit extends Cubit<AddComicState> {
           description: description.trim(),
           categoryName: categoryName.trim(),
           isSensitive: state.isSensitive,
+          contentType: state.contentType,
           isFree: state.isFree,
           productId: productId.trim(),
           imageBytes: state.imageBytes,

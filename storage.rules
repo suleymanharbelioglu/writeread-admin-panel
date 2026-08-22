@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// Snapshot of production rules (writeread-de965) as of Faz 0 audit.
+// Do not tighten here until Faz 1 — mirrors live Storage so deploy stays safe.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}

@@ -1,6 +1,9 @@
+import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
+
 class EditComicFormState {
   const EditComicFormState({
     this.isEditing = false,
+    this.contentType = ComicContentType.comic,
     this.isFree = true,
     this.isSensitive = false,
     this.newImageBytes,
@@ -8,6 +11,7 @@ class EditComicFormState {
   });
 
   final bool isEditing;
+  final String contentType;
   final bool isFree;
   final bool isSensitive;
   final List<int>? newImageBytes;
@@ -15,6 +19,7 @@ class EditComicFormState {
 
   EditComicFormState copyWith({
     bool? isEditing,
+    String? contentType,
     bool? isFree,
     bool? isSensitive,
     List<int>? newImageBytes,
@@ -24,6 +29,7 @@ class EditComicFormState {
   }) {
     return EditComicFormState(
       isEditing: isEditing ?? this.isEditing,
+      contentType: contentType ?? this.contentType,
       isFree: isFree ?? this.isFree,
       isSensitive: isSensitive ?? this.isSensitive,
       newImageBytes: clearImage ? null : (newImageBytes ?? this.newImageBytes),

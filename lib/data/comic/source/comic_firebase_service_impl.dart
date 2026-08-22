@@ -9,6 +9,7 @@ import 'package:writeread_admin_panel/core/firebase/firestore_write_helper.dart'
 import 'package:writeread_admin_panel/core/firebase/soft_deadline.dart';
 import 'package:writeread_admin_panel/data/comic/model/comic_model.dart';
 import 'package:writeread_admin_panel/data/comic/source/comic_firebase_service.dart';
+import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
 
 class ComicFirebaseServiceImpl extends ComicFirebaseService {
   static const String _comicsCollection = FirestoreCollections.comics;
@@ -113,6 +114,7 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
     String description,
     String categoryName, {
     required bool isSensitive,
+    required String contentType,
     required bool isFree,
     required String productId,
     List<int>? imageBytes,
@@ -140,6 +142,7 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
 
       final categoryTrimmed = categoryName.trim();
       final createdDate = DateTime.now().toUtc();
+      final parsedContentType = ComicContentType.parse(contentType);
       // Use List<dynamic> (not List<Map>) — typed empty lists can break
       // Firestore JS interop on Flutter Web.
       final data = <String, dynamic>{
@@ -148,6 +151,7 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
         'description': description.trim(),
         'image': imageFilename,
         'isSensitive': isSensitive,
+        'contentType': parsedContentType,
         'isFree': isFree,
         'productId': productId.trim(),
         'likeCount': 0,
@@ -191,6 +195,7 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
             description: description.trim(),
             image: imageFilename,
             isSensitive: isSensitive,
+            contentType: parsedContentType,
             isFree: isFree,
             productId: productId.trim(),
             likeCount: 0,
@@ -220,6 +225,7 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
     required String title,
     required String description,
     required bool isSensitive,
+    required String contentType,
     required bool isFree,
     required String productId,
     String? oldImageFilename,
@@ -262,6 +268,7 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
           'title': title.trim(),
           'description': description.trim(),
           'isSensitive': isSensitive,
+          'contentType': ComicContentType.parse(contentType),
           'isFree': isFree,
           'productId': productId.trim(),
           'image': ?newImageFilename,

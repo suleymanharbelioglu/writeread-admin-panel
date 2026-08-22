@@ -6,6 +6,7 @@ import 'package:writeread_admin_panel/common/helper/ui/app_copy.dart';
 import 'package:writeread_admin_panel/common/helper/ui/app_feedback.dart';
 import 'package:writeread_admin_panel/common/widgets/info_tip.dart';
 import 'package:writeread_admin_panel/common/widgets/loading_overlay.dart';
+import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
 import 'package:writeread_admin_panel/presentation/add_comic/bloc/add_comic_cubit.dart';
 import 'package:writeread_admin_panel/presentation/add_comic/bloc/add_comic_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/page/comic.dart';
@@ -124,6 +125,28 @@ class _AddComicPageState extends State<AddComicPage> {
                       border: OutlineInputBorder(),
                       helperText: AppCopy.categoryHelper,
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: ComicContentType.parse(state.contentType),
+                    decoration: const InputDecoration(
+                      labelText: 'Content type',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: ComicContentType.values
+                        .map(
+                          (type) => DropdownMenuItem(
+                            value: type,
+                            child: Text(ComicContentType.label(type)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: loading
+                        ? null
+                        : (value) {
+                            if (value == null) return;
+                            cubit.setContentType(value);
+                          },
                   ),
                   const SizedBox(height: 16),
                   SwitchListTile.adaptive(

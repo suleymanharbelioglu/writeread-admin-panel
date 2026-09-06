@@ -18,11 +18,11 @@ class ComicContentType {
   static String label(String type) {
     switch (parse(type)) {
       case chatStory:
-        return 'Chat Story';
+        return 'Chat Stories';
       case novel:
-        return 'Novel';
+        return 'Novels';
       default:
-        return 'Comic';
+        return 'Others';
     }
   }
 }

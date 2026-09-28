@@ -19,9 +19,15 @@ import 'package:writeread_admin_panel/domain/chapter/usecases/delete_last_chapte
 import 'package:writeread_admin_panel/domain/chapter/usecases/update_chapter.dart';
 import 'package:writeread_admin_panel/domain/comic/repository/comic_repository.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/add_comic.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/clear_locale_chapter_pages.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/clear_locale_cover.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/delete_comic.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/delete_locale.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/get_all_comics.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/update_comic.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/update_locale_metadata.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/upload_locale_cover.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/upsert_locale_chapter.dart';
 
 final sl = GetIt.instance;
 
@@ -56,4 +62,10 @@ Future<void> initializeDependencies() async {
   sl.registerFactory(() => UpdateChapterUseCase(sl()));
   sl.registerFactory(() => DeleteLastChapterUseCase(sl()));
   sl.registerFactory(() => DeleteAllChapterImagesUseCase(sl()));
+  sl.registerFactory(() => UpdateLocaleMetadataUseCase(sl()));
+  sl.registerFactory(() => UpsertLocaleChapterUseCase(sl()));
+  sl.registerFactory(() => ClearLocaleChapterPagesUseCase(sl()));
+  sl.registerFactory(() => DeleteLocaleUseCase(sl()));
+  sl.registerFactory(() => UploadLocaleCoverUseCase(sl()));
+  sl.registerFactory(() => ClearLocaleCoverUseCase(sl()));
 }

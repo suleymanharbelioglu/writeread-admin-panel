@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:writeread_admin_panel/common/helper/navigator/app_navigator.dart';
 import 'package:writeread_admin_panel/common/helper/ui/app_copy.dart';
+import 'package:writeread_admin_panel/common/helper/ui/app_feedback.dart';
 import 'package:writeread_admin_panel/common/widgets/info_tip.dart';
+import 'package:writeread_admin_panel/domain/auth/usecases/signout.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/add_comic.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/get_all_comics.dart';
 import 'package:writeread_admin_panel/presentation/add_comic/bloc/add_comic_cubit.dart';
@@ -43,6 +45,17 @@ class _HomeView extends StatelessWidget {
     context.read<ComicsCubit>().loadComics();
   }
 
+  Future<void> _signOut(BuildContext context) async {
+    final result = await sl<SignoutUseCase>().call();
+    if (!context.mounted) return;
+    result.fold(
+      (message) => AppFeedback.showError(context, message),
+      (_) {
+        // AuthGate listens to authStateChanges and shows Sign-in.
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,6 +66,11 @@ class _HomeView extends StatelessWidget {
             icon: const Icon(Icons.add),
             onPressed: () => _openAddComic(context),
             tooltip: 'Add new comic',
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign out',
+            onPressed: () => _signOut(context),
           ),
         ],
       ),

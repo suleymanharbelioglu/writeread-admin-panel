@@ -6,6 +6,7 @@ import 'package:writeread_admin_panel/common/helper/navigator/app_navigator.dart
 import 'package:writeread_admin_panel/domain/comic/entity/comic_entity.dart';
 import 'package:writeread_admin_panel/presentation/comic/page/comic.dart';
 import 'package:writeread_admin_panel/presentation/home/bloc/comics_cubit.dart';
+import 'package:writeread_admin_panel/presentation/home/widget/comic_locale_badges.dart';
 
 class ComicCard extends StatelessWidget {
   const ComicCard({super.key, required this.comic});
@@ -47,6 +48,15 @@ class ComicCard extends StatelessWidget {
                     )
                   else
                     _imagePlaceholder(),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    left: 6,
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: ComicLocaleBadges(comic: comic),
+                    ),
+                  ),
                   Positioned(
                     left: 0,
                     right: 0,

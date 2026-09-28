@@ -17,9 +17,13 @@ class UpdateChapterUseCase
     final hasImages = params.additionalImageBytesList != null &&
         params.additionalImageBytesList!.isNotEmpty;
     final hasMusic = params.musicBytes != null && params.musicBytes!.isNotEmpty;
-    if (!hasImages && !hasMusic && params.isFreePreview == null) {
+    final hasName = params.chapterName != null;
+    if (!hasImages &&
+        !hasMusic &&
+        params.isFreePreview == null &&
+        !hasName) {
       return const Left(
-        'Provide free preview setting, additional images, and/or music',
+        'Provide free preview setting, chapter name, additional images, and/or music',
       );
     }
     return _chapterRepository.updateChapter(
@@ -28,6 +32,8 @@ class UpdateChapterUseCase
       isFreePreview: params.isFreePreview,
       additionalImageBytesList: params.additionalImageBytesList,
       musicBytes: params.musicBytes,
+      chapterName: params.chapterName,
+      locale: params.locale,
     );
   }
 }

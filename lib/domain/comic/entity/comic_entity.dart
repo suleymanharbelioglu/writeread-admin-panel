@@ -1,5 +1,7 @@
+import 'package:writeread_admin_panel/core/locale/app_locales.dart';
 import 'package:writeread_admin_panel/domain/chapter/entity/chapter_entity.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
+import 'package:writeread_admin_panel/domain/comic/entity/comic_locale_content.dart';
 
 class ComicEntity {
   final String comicId;
@@ -20,6 +22,9 @@ class ComicEntity {
   final String categoryName;
   final List<ChapterEntity> chapters;
 
+  /// Non-English overlays from Firestore (`locales` map). Never includes `en`.
+  final Map<String, ComicLocaleContent> locales;
+
   const ComicEntity({
     required this.comicId,
     required this.title,
@@ -36,7 +41,26 @@ class ComicEntity {
     required this.categoryId,
     required this.categoryName,
     required this.chapters,
+    this.locales = const {},
   });
+
+  /// Readiness for any language tab, including English root content.
+  LocaleReadiness readinessFor(String localeCode) {
+    if (AppLocales.isEnglish(localeCode)) return englishReadiness;
+    return localeReadiness(locales, localeCode);
+  }
+
+  /// English root: title + description + at least one chapter with pages.
+  LocaleReadiness get englishReadiness {
+    final hasMeta =
+        title.trim().isNotEmpty && description.trim().isNotEmpty;
+    final hasChapters = chapters.any((c) => c.pageCount > 0);
+    if (!hasMeta && !hasChapters && image.trim().isEmpty) {
+      return LocaleReadiness.missing;
+    }
+    if (hasMeta && hasChapters) return LocaleReadiness.ready;
+    return LocaleReadiness.partial;
+  }
 
   ComicEntity copyWith({
     String? comicId,
@@ -54,6 +78,7 @@ class ComicEntity {
     String? categoryId,
     String? categoryName,
     List<ChapterEntity>? chapters,
+    Map<String, ComicLocaleContent>? locales,
   }) {
     return ComicEntity(
       comicId: comicId ?? this.comicId,
@@ -71,6 +96,7 @@ class ComicEntity {
       categoryId: categoryId ?? this.categoryId,
       categoryName: categoryName ?? this.categoryName,
       chapters: chapters ?? this.chapters,
+      locales: locales ?? this.locales,
     );
   }
 }

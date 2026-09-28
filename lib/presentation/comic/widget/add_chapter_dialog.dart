@@ -5,15 +5,21 @@ import 'package:writeread_admin_panel/common/helper/navigator/app_navigator.dart
 import 'package:writeread_admin_panel/common/helper/ui/app_copy.dart';
 import 'package:writeread_admin_panel/common/helper/ui/app_feedback.dart';
 import 'package:writeread_admin_panel/common/widgets/info_tip.dart';
+import 'package:writeread_admin_panel/core/locale/app_locales.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_entity.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/add_chapter_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/add_chapter_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/current_comic_cubit.dart';
 
 class AddChapterDialog extends StatefulWidget {
-  const AddChapterDialog({super.key, required this.comic});
+  const AddChapterDialog({
+    super.key,
+    required this.comic,
+    this.locale = AppLocales.english,
+  });
 
   final ComicEntity comic;
+  final String locale;
 
   @override
   State<AddChapterDialog> createState() => _AddChapterDialogState();
@@ -22,11 +28,17 @@ class AddChapterDialog extends StatefulWidget {
 class _AddChapterDialogState extends State<AddChapterDialog> {
   late final TextEditingController _nameController;
 
+  int get _nextChapterNumber {
+    if (AppLocales.isEnglish(widget.locale)) {
+      return widget.comic.chapters.length + 1;
+    }
+    return (widget.comic.locales[widget.locale]?.chapters.length ?? 0) + 1;
+  }
+
   @override
   void initState() {
     super.initState();
-    final nextNumber = widget.comic.chapters.length + 1;
-    _nameController = TextEditingController(text: 'Chapter $nextNumber');
+    _nameController = TextEditingController(text: 'Chapter $_nextChapterNumber');
   }
 
   @override
@@ -52,6 +64,10 @@ class _AddChapterDialogState extends State<AddChapterDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final localeName = AppLocales.isEnglish(widget.locale)
+        ? 'English'
+        : AppLocales.nativeName(widget.locale);
+
     return BlocConsumer<AddChapterCubit, AddChapterState>(
       listenWhen: (prev, curr) =>
           prev.status != curr.status &&
@@ -61,8 +77,15 @@ class _AddChapterDialogState extends State<AddChapterDialog> {
         if (state.status == AddChapterStatus.success &&
             state.successChapter != null) {
           final chapter = state.successChapter!;
-          context.read<CurrentComicCubit>().appendChapter(chapter);
-          AppFeedback.showSuccess(context, 'Chapter added');
+          if (AppLocales.isEnglish(widget.locale)) {
+            context.read<CurrentComicCubit>().appendChapter(chapter);
+          } else {
+            context.read<CurrentComicCubit>().appendLocaleChapter(
+                  locale: widget.locale,
+                  chapter: chapter,
+                );
+          }
+          AppFeedback.showSuccess(context, 'Chapter added ($localeName)');
           AppNavigator.pop(context, true);
           return;
         }
@@ -76,13 +99,18 @@ class _AddChapterDialogState extends State<AddChapterDialog> {
         final loading = state.isLoading;
 
         return AlertDialog(
-          title: const Text('Add Chapter'),
+          title: Text('Add Chapter ($localeName)'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const InfoTip(message: AppCopy.addChapterTip),
+                InfoTip(
+                  message: AppLocales.isEnglish(widget.locale)
+                      ? AppCopy.addChapterTip
+                      : 'Adds a chapter only for $localeName. '
+                          'Other languages keep their own chapter lists.',
+                ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _nameController,

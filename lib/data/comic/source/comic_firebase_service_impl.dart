@@ -7,9 +7,12 @@ import 'package:writeread_admin_panel/core/constants/firestore_collections.dart'
 import 'package:writeread_admin_panel/core/error/firebase_error_mapper.dart';
 import 'package:writeread_admin_panel/core/firebase/firestore_write_helper.dart';
 import 'package:writeread_admin_panel/core/firebase/soft_deadline.dart';
+import 'package:writeread_admin_panel/core/locale/app_locales.dart';
+import 'package:writeread_admin_panel/core/locale/chapter_storage_paths.dart';
 import 'package:writeread_admin_panel/data/comic/model/comic_model.dart';
 import 'package:writeread_admin_panel/data/comic/source/comic_firebase_service.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
+import 'package:writeread_admin_panel/domain/comic/entity/comic_locale_content.dart';
 
 class ComicFirebaseServiceImpl extends ComicFirebaseService {
   static const String _comicsCollection = FirestoreCollections.comics;
@@ -46,6 +49,20 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
       await ref.delete();
     } on FirebaseException catch (e) {
       if (e.code != 'object-not-found') rethrow;
+    }
+  }
+
+  /// Best-effort cover cleanup; a leftover file must never fail the save.
+  Future<void> _deleteCoverQuietly(String? imageField) async {
+    if (imageField == null || imageField.trim().isEmpty) return;
+    try {
+      await _deleteStorageFileIfExists(
+        FirebaseStorage.instance.ref().child(
+          ChapterStoragePaths.coverObjectPathFromField(imageField),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Cover cleanup skipped for $imageField: $e');
     }
   }
 
@@ -94,9 +111,8 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
           SettableMetadata(contentType: 'image/jpeg'),
         ),
         deadline: _storageTimeout,
-        onDeadline: () => throw StateError(
-          'Cover upload timed out. Check your connection.',
-        ),
+        onDeadline: () =>
+            throw StateError('Cover upload timed out. Check your connection.'),
       );
       return null;
     } catch (e, stackTrace) {
@@ -135,7 +151,10 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
 
       String imageFilename = '';
       if (imageBytes != null && imageBytes.isNotEmpty) {
-        imageFilename = '${comicId}_cover.jpg';
+        imageFilename = ChapterStoragePaths.versionedCoverImageField(
+          comicId: comicId,
+          version: DateTime.now().millisecondsSinceEpoch,
+        );
         final uploadError = await _uploadCover(imageFilename, imageBytes);
         if (uploadError != null) return Left(uploadError);
       }
@@ -166,11 +185,11 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
       try {
         final write = await FirestoreWriteHelper.setDocument(docRef, data);
         if (!write.isSuccess) {
+          if (write.error is FirebaseException) {
+            await _deleteCoverQuietly(imageFilename);
+          }
           return Left(
-            FirebaseErrorMapper.map(
-              write.error!,
-              action: 'Save comic',
-            ),
+            FirebaseErrorMapper.map(write.error!, action: 'Save comic'),
           );
         }
       } catch (e, stackTrace) {
@@ -205,16 +224,13 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
             categoryId: categoryTrimmed,
             categoryName: categoryTrimmed,
             chapters: const [],
+            locales: const {},
           ),
         );
       }
     } catch (e, stackTrace) {
       return Left(
-        FirebaseErrorMapper.map(
-          e,
-          action: 'Add comic',
-          stackTrace: stackTrace,
-        ),
+        FirebaseErrorMapper.map(e, action: 'Add comic', stackTrace: stackTrace),
       );
     }
   }
@@ -241,24 +257,25 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
           .collection(_comicsCollection)
           .doc(comicId);
       String? newImageFilename;
+      String? replacedImageFilename;
 
       if (newImageBytes != null && newImageBytes.isNotEmpty) {
-        if (oldImageFilename != null && oldImageFilename.isNotEmpty) {
-          final oldRef = FirebaseStorage.instance
-              .ref()
-              .child(_storageComicsPath)
-              .child(oldImageFilename);
-          try {
-            await oldRef.delete();
-          } on FirebaseException catch (e) {
-            if (e.code != 'object-not-found') {
-              return Left(
-                FirebaseErrorMapper.map(e, action: 'Delete old cover'),
-              );
-            }
-          }
-        }
-        newImageFilename = '${comicId}_cover.jpg';
+        final current = await softDeadline(
+          docRef.get(),
+          deadline: _storageTimeout,
+          onDeadline: () => throw StateError(
+            'Reading comic timed out. Check your connection.',
+          ),
+        );
+        final currentImage = current.data()?['image'];
+        replacedImageFilename =
+            currentImage is String && currentImage.trim().isNotEmpty
+            ? currentImage.trim()
+            : oldImageFilename;
+        newImageFilename = ChapterStoragePaths.versionedCoverImageField(
+          comicId: comicId,
+          version: DateTime.now().millisecondsSinceEpoch,
+        );
         final uploadError = await _uploadCover(newImageFilename, newImageBytes);
         if (uploadError != null) return Left(uploadError);
       }
@@ -274,11 +291,11 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
           'image': ?newImageFilename,
         });
         if (!write.isSuccess) {
+          if (write.error is FirebaseException) {
+            await _deleteCoverQuietly(newImageFilename);
+          }
           return Left(
-            FirebaseErrorMapper.map(
-              write.error!,
-              action: 'Update comic',
-            ),
+            FirebaseErrorMapper.map(write.error!, action: 'Update comic'),
           );
         }
       } catch (e, stackTrace) {
@@ -289,6 +306,11 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
             stackTrace: stackTrace,
           ),
         );
+      }
+
+      if (replacedImageFilename != null &&
+          replacedImageFilename != newImageFilename) {
+        await _deleteCoverQuietly(replacedImageFilename);
       }
 
       final snap = await softDeadline(
@@ -360,9 +382,19 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
         }
       }
 
-      await _deleteStorageFileIfExists(
-        storageRef.child('${comicId}_cover.jpg'),
+      await _deleteCoverQuietly(
+        ChapterStoragePaths.coverImageField(comicId: comicId),
       );
+      try {
+        final rootList = await storageRef.listAll();
+        for (final item in rootList.items) {
+          if (ChapterStoragePaths.isRootCoverNameOf(item.name, comicId)) {
+            await _deleteStorageFileIfExists(item);
+          }
+        }
+      } catch (e) {
+        debugPrint('Old cover sweep skipped for $comicId: $e');
+      }
       await _deleteStorageFileIfExists(storageRef.child('$comicId.jpg'));
       await _deleteStorageFileIfExists(storageRef.child('$comicId.jpeg'));
 
@@ -440,5 +472,484 @@ class ComicFirebaseServiceImpl extends ComicFirebaseService {
     final data = Map<String, dynamic>.from(raw);
     data['comicId'] = comicId;
     return ComicModel.fromMap(data);
+  }
+
+  Either<String, void> _validateContentLocale(String locale) {
+    if (!AppLocales.isSupported(locale) || AppLocales.isEnglish(locale)) {
+      return const Left('Invalid content locale');
+    }
+    return const Right(null);
+  }
+
+  Future<Either<String, ComicModel>> _readComicModel(
+    DocumentReference<Map<String, dynamic>> docRef,
+    String comicId,
+  ) async {
+    final snap = await softDeadline(
+      docRef.get(),
+      deadline: _storageTimeout,
+      onDeadline: () =>
+          throw StateError('Reading comic timed out. Check your connection.'),
+    );
+    if (!snap.exists || snap.data() == null) {
+      return const Left('Comic not found');
+    }
+    return Right(_mapToModel(comicId, snap.data()!));
+  }
+
+  @override
+  Future<Either<String, ComicModel>> updateLocaleMetadata(
+    String comicId,
+    String locale, {
+    required String title,
+    required String description,
+    required String categoryName,
+  }) async {
+    try {
+      final localeCheck = _validateContentLocale(locale);
+      if (localeCheck.isLeft()) {
+        return Left(localeCheck.fold((l) => l, (_) => ''));
+      }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        return const Left('Not signed in. Sign in again, then save.');
+      }
+
+      final docRef = FirebaseFirestore.instance
+          .collection(_comicsCollection)
+          .doc(comicId);
+      final doc = await docRef.get();
+      if (!doc.exists || doc.data() == null) {
+        return const Left('Comic not found');
+      }
+
+      final data = doc.data()!;
+      final rawLocales = data['locales'];
+      final existing = (rawLocales is Map && rawLocales[locale] is Map)
+          ? ComicLocaleContent.fromMap(
+              Map<String, dynamic>.from(rawLocales[locale] as Map),
+            )
+          : null;
+
+      final updated = ComicLocaleContent(
+        title: title.trim(),
+        description: description.trim(),
+        categoryName: categoryName.trim(),
+        image: existing?.image ?? '',
+        chapters: existing?.chapters ?? const [],
+      );
+
+      final write = await FirestoreWriteHelper.updateDocument(docRef, {
+        'locales.$locale': updated.toMap(),
+      });
+      if (!write.isSuccess) {
+        return Left(
+          FirebaseErrorMapper.map(
+            write.error!,
+            action: 'Update locale metadata',
+          ),
+        );
+      }
+      return _readComicModel(docRef, comicId);
+    } catch (e, stackTrace) {
+      return Left(
+        FirebaseErrorMapper.map(
+          e,
+          action: 'Update locale metadata',
+          stackTrace: stackTrace,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Either<String, ComicModel>> upsertLocaleChapter(
+    String comicId,
+    String locale,
+    ChapterLocaleContent chapter,
+  ) async {
+    try {
+      final localeCheck = _validateContentLocale(locale);
+      if (localeCheck.isLeft()) {
+        return Left(localeCheck.fold((l) => l, (_) => ''));
+      }
+      if (chapter.chapterId.isEmpty) {
+        return const Left('Chapter id required');
+      }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        return const Left('Not signed in. Sign in again, then save.');
+      }
+
+      final docRef = FirebaseFirestore.instance
+          .collection(_comicsCollection)
+          .doc(comicId);
+      final doc = await docRef.get();
+      if (!doc.exists || doc.data() == null) {
+        return const Left('Comic not found');
+      }
+
+      final data = doc.data()!;
+      final rawLocales = data['locales'];
+      final existing = (rawLocales is Map && rawLocales[locale] is Map)
+          ? ComicLocaleContent.fromMap(
+              Map<String, dynamic>.from(rawLocales[locale] as Map),
+            )
+          : const ComicLocaleContent(
+              title: '',
+              description: '',
+              categoryName: '',
+            );
+
+      final chapters = List<ChapterLocaleContent>.from(existing.chapters);
+      final index = chapters.indexWhere(
+        (c) => c.chapterId == chapter.chapterId,
+      );
+      final normalized = chapter.copyWith(
+        comicId: chapter.comicId.isNotEmpty ? chapter.comicId : comicId,
+      );
+      if (index >= 0) {
+        // Server copy owns pages/music/version; the caller may hold stale values.
+        chapters[index] = chapters[index].copyWith(
+          chapterName: normalized.chapterName,
+          isFreePreview: normalized.isFreePreview,
+        );
+      } else {
+        chapters.add(normalized);
+      }
+
+      final write = await FirestoreWriteHelper.updateDocument(docRef, {
+        'locales.$locale': existing.copyWith(chapters: chapters).toMap(),
+      });
+      if (!write.isSuccess) {
+        return Left(
+          FirebaseErrorMapper.map(
+            write.error!,
+            action: 'Upsert locale chapter',
+          ),
+        );
+      }
+      return _readComicModel(docRef, comicId);
+    } catch (e, stackTrace) {
+      return Left(
+        FirebaseErrorMapper.map(
+          e,
+          action: 'Upsert locale chapter',
+          stackTrace: stackTrace,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Either<String, ComicModel>> clearLocaleChapterPages(
+    String comicId,
+    String locale,
+    String chapterId,
+  ) async {
+    try {
+      final localeCheck = _validateContentLocale(locale);
+      if (localeCheck.isLeft()) {
+        return Left(localeCheck.fold((l) => l, (_) => ''));
+      }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        return const Left('Not signed in. Sign in again, then clear.');
+      }
+
+      final folderRef = FirebaseStorage.instance.ref().child(
+        ChapterStoragePaths.chapterFolderObjectPath(
+          comicId: comicId,
+          chapterId: chapterId,
+          locale: locale,
+        ),
+      );
+      try {
+        await _deleteStorageFolderRecursively(folderRef);
+      } on FirebaseException catch (e) {
+        if (e.code != 'object-not-found') {
+          return Left(
+            FirebaseErrorMapper.map(e, action: 'Clear locale chapter pages'),
+          );
+        }
+      }
+
+      final docRef = FirebaseFirestore.instance
+          .collection(_comicsCollection)
+          .doc(comicId);
+      final doc = await docRef.get();
+      if (!doc.exists || doc.data() == null) {
+        return const Left('Comic not found');
+      }
+
+      final data = doc.data()!;
+      final rawLocales = data['locales'];
+      if (rawLocales is! Map || rawLocales[locale] is! Map) {
+        return const Left('Locale not found');
+      }
+
+      final existing = ComicLocaleContent.fromMap(
+        Map<String, dynamic>.from(rawLocales[locale] as Map),
+      );
+      final chapters = List<ChapterLocaleContent>.from(existing.chapters);
+      final index = chapters.indexWhere((c) => c.chapterId == chapterId);
+      if (index < 0) {
+        return _readComicModel(docRef, comicId);
+      }
+
+      chapters[index] = chapters[index].copyWith(
+        pageCount: 0,
+        clearMusicUrl: true,
+        pagesVersion: ChapterStoragePaths.nextPagesVersion(
+          chapters[index].pagesVersion,
+        ),
+      );
+
+      final write = await FirestoreWriteHelper.updateDocument(docRef, {
+        'locales.$locale': existing.copyWith(chapters: chapters).toMap(),
+      });
+      if (!write.isSuccess) {
+        return Left(
+          FirebaseErrorMapper.map(
+            write.error!,
+            action: 'Clear locale chapter pages',
+          ),
+        );
+      }
+      return _readComicModel(docRef, comicId);
+    } catch (e, stackTrace) {
+      return Left(
+        FirebaseErrorMapper.map(
+          e,
+          action: 'Clear locale chapter pages',
+          stackTrace: stackTrace,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Either<String, ComicModel>> deleteLocale(
+    String comicId,
+    String locale,
+  ) async {
+    try {
+      final localeCheck = _validateContentLocale(locale);
+      if (localeCheck.isLeft()) {
+        return Left(localeCheck.fold((l) => l, (_) => ''));
+      }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        return const Left('Not signed in. Sign in again, then delete.');
+      }
+
+      final localeFolderRef = FirebaseStorage.instance.ref().child(
+        ChapterStoragePaths.localeFolderObjectPath(
+          comicId: comicId,
+          locale: locale,
+        ),
+      );
+      try {
+        await _deleteStorageFolderRecursively(localeFolderRef);
+      } on FirebaseException catch (e) {
+        if (e.code != 'object-not-found') {
+          return Left(
+            FirebaseErrorMapper.map(e, action: 'Delete locale folder'),
+          );
+        }
+      }
+
+      final docRef = FirebaseFirestore.instance
+          .collection(_comicsCollection)
+          .doc(comicId);
+      final write = await FirestoreWriteHelper.updateDocument(docRef, {
+        'locales.$locale': FieldValue.delete(),
+      });
+      if (!write.isSuccess) {
+        return Left(
+          FirebaseErrorMapper.map(write.error!, action: 'Delete locale'),
+        );
+      }
+      return _readComicModel(docRef, comicId);
+    } catch (e, stackTrace) {
+      return Left(
+        FirebaseErrorMapper.map(
+          e,
+          action: 'Delete locale',
+          stackTrace: stackTrace,
+        ),
+      );
+    }
+  }
+
+  Future<String?> _uploadCoverAtObjectPath(
+    String objectPath,
+    List<int> imageBytes,
+  ) async {
+    try {
+      final ref = FirebaseStorage.instance.ref().child(objectPath);
+      await softDeadlineVoid(
+        ref.putData(
+          Uint8List.fromList(imageBytes),
+          SettableMetadata(contentType: 'image/jpeg'),
+        ),
+        deadline: _storageTimeout,
+        onDeadline: () =>
+            throw StateError('Cover upload timed out. Check your connection.'),
+      );
+      return null;
+    } catch (e, stackTrace) {
+      return FirebaseErrorMapper.map(
+        e,
+        action: 'Locale cover upload',
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  @override
+  Future<Either<String, ComicModel>> uploadLocaleCover(
+    String comicId,
+    String locale,
+    List<int> imageBytes,
+  ) async {
+    try {
+      final localeCheck = _validateContentLocale(locale);
+      if (localeCheck.isLeft()) {
+        return Left(localeCheck.fold((l) => l, (_) => ''));
+      }
+      if (imageBytes.isEmpty) {
+        return const Left('Cover image required');
+      }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        return const Left('Not signed in. Sign in again, then upload.');
+      }
+
+      final docRef = FirebaseFirestore.instance
+          .collection(_comicsCollection)
+          .doc(comicId);
+      final doc = await docRef.get();
+      if (!doc.exists || doc.data() == null) {
+        return const Left('Comic not found');
+      }
+
+      final imageField = ChapterStoragePaths.versionedCoverImageField(
+        comicId: comicId,
+        locale: locale,
+        version: DateTime.now().millisecondsSinceEpoch,
+      );
+      final uploadError = await _uploadCoverAtObjectPath(
+        ChapterStoragePaths.coverObjectPathFromField(imageField),
+        imageBytes,
+      );
+      if (uploadError != null) return Left(uploadError);
+
+      final data = doc.data()!;
+      final rawLocales = data['locales'];
+      final existing = (rawLocales is Map && rawLocales[locale] is Map)
+          ? ComicLocaleContent.fromMap(
+              Map<String, dynamic>.from(rawLocales[locale] as Map),
+            )
+          : const ComicLocaleContent(
+              title: '',
+              description: '',
+              categoryName: '',
+            );
+
+      final previousImage = existing.image.trim();
+      final updated = existing.copyWith(image: imageField);
+      final write = await FirestoreWriteHelper.updateDocument(docRef, {
+        'locales.$locale': updated.toMap(),
+      });
+      if (!write.isSuccess) {
+        if (write.error is FirebaseException) {
+          await _deleteCoverQuietly(imageField);
+        }
+        return Left(
+          FirebaseErrorMapper.map(write.error!, action: 'Save locale cover'),
+        );
+      }
+      if (previousImage.startsWith('$comicId/$locale/') &&
+          previousImage != imageField) {
+        await _deleteCoverQuietly(previousImage);
+      }
+      return _readComicModel(docRef, comicId);
+    } catch (e, stackTrace) {
+      return Left(
+        FirebaseErrorMapper.map(
+          e,
+          action: 'Upload locale cover',
+          stackTrace: stackTrace,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Either<String, ComicModel>> clearLocaleCover(
+    String comicId,
+    String locale,
+  ) async {
+    try {
+      final localeCheck = _validateContentLocale(locale);
+      if (localeCheck.isLeft()) {
+        return Left(localeCheck.fold((l) => l, (_) => ''));
+      }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        return const Left('Not signed in. Sign in again, then clear cover.');
+      }
+
+      final docRef = FirebaseFirestore.instance
+          .collection(_comicsCollection)
+          .doc(comicId);
+      final doc = await docRef.get();
+      if (!doc.exists || doc.data() == null) {
+        return const Left('Comic not found');
+      }
+
+      final data = doc.data()!;
+      final rawLocales = data['locales'];
+      if (rawLocales is! Map || rawLocales[locale] is! Map) {
+        return _readComicModel(docRef, comicId);
+      }
+
+      final existing = ComicLocaleContent.fromMap(
+        Map<String, dynamic>.from(rawLocales[locale] as Map),
+      );
+
+      final previousImage = existing.image.trim();
+      final updated = existing.copyWith(clearImage: true);
+      final write = await FirestoreWriteHelper.updateDocument(docRef, {
+        'locales.$locale': updated.toMap(),
+      });
+      if (!write.isSuccess) {
+        return Left(
+          FirebaseErrorMapper.map(write.error!, action: 'Clear locale cover'),
+        );
+      }
+      if (previousImage.startsWith('$comicId/$locale/')) {
+        await _deleteCoverQuietly(previousImage);
+      }
+      await _deleteCoverQuietly(
+        ChapterStoragePaths.coverImageField(comicId: comicId, locale: locale),
+      );
+      return _readComicModel(docRef, comicId);
+    } catch (e, stackTrace) {
+      return Left(
+        FirebaseErrorMapper.map(
+          e,
+          action: 'Clear locale cover',
+          stackTrace: stackTrace,
+        ),
+      );
+    }
   }
 }

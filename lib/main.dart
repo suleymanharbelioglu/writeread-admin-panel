@@ -2,8 +2,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:writeread_admin_panel/core/configs/theme/app_theme.dart';
 import 'package:writeread_admin_panel/firebase_options.dart';
-import 'package:writeread_admin_panel/presentation/auth/page/signin.dart';
+import 'package:writeread_admin_panel/presentation/auth/page/auth_gate.dart';
 import 'package:writeread_admin_panel/service_locator.dart';
+
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,10 +20,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
-      title: 'Chapt',
+      title: 'Chapt Admin',
       theme: AppTheme.appTheme,
-      home: const SigninPage(),
+      home: AuthGate(navigatorKey: appNavigatorKey),
     );
   }
 }

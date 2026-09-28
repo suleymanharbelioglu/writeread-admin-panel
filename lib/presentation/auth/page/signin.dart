@@ -1,12 +1,10 @@
 import 'package:email_validator/email_validator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:writeread_admin_panel/common/helper/navigator/app_navigator.dart';
 import 'package:writeread_admin_panel/common/helper/ui/app_feedback.dart';
 import 'package:writeread_admin_panel/domain/auth/usecases/signin.dart';
 import 'package:writeread_admin_panel/presentation/auth/bloc/signin_cubit.dart';
 import 'package:writeread_admin_panel/presentation/auth/bloc/signin_state.dart';
-import 'package:writeread_admin_panel/presentation/is_admin/page/is_admin.dart';
 import 'package:writeread_admin_panel/service_locator.dart';
 
 class SigninPage extends StatefulWidget {
@@ -53,8 +51,8 @@ class _SigninPageState extends State<SigninPage> {
 
   void _handleSigninState(BuildContext context, SigninState state) {
     if (state.status == SigninStatus.success) {
+      // AuthGate watches FirebaseAuth and routes to the admin check / Home.
       AppFeedback.showSuccess(context, 'Signed in successfully');
-      AppNavigator.pushReplacement(context, const IsAdminPage());
     }
     if (state.status == SigninStatus.failure && state.errorMessage != null) {
       AppFeedback.showError(context, state.errorMessage!);

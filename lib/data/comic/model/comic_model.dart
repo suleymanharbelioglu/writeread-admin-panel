@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:writeread_admin_panel/core/locale/app_locales.dart';
 import 'package:writeread_admin_panel/data/chapter/model/chapter_model.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_entity.dart';
+import 'package:writeread_admin_panel/domain/comic/entity/comic_locale_content.dart';
 
 class ComicModel {
   final String comicId;
@@ -19,6 +21,7 @@ class ComicModel {
   final String categoryId;
   final String categoryName;
   final List<ChapterModel> chapters;
+  final Map<String, ComicLocaleContent> locales;
 
   ComicModel({
     required this.comicId,
@@ -36,10 +39,11 @@ class ComicModel {
     required this.categoryId,
     required this.categoryName,
     required this.chapters,
+    this.locales = const {},
   });
 
   Map<String, dynamic> toMap() {
-    return <String, dynamic>{
+    final map = <String, dynamic>{
       'comicId': comicId,
       'title': title,
       'description': description,
@@ -56,6 +60,25 @@ class ComicModel {
       'categoryName': categoryName,
       'chapters': chapters.map((c) => c.toMap()).toList(),
     };
+    if (locales.isNotEmpty) {
+      map['locales'] = {
+        for (final e in locales.entries)
+          if (!AppLocales.isEnglish(e.key)) e.key: e.value.toMap(),
+      };
+    }
+    return map;
+  }
+
+  static Map<String, ComicLocaleContent> _parseLocales(dynamic raw) {
+    if (raw is! Map) return const {};
+    final out = <String, ComicLocaleContent>{};
+    raw.forEach((key, value) {
+      final code = key?.toString() ?? '';
+      if (!AppLocales.isSupported(code) || AppLocales.isEnglish(code)) return;
+      if (value is! Map) return;
+      out[code] = ComicLocaleContent.fromMap(Map<String, dynamic>.from(value));
+    });
+    return out;
   }
 
   factory ComicModel.fromMap(Map<String, dynamic> map) {
@@ -85,6 +108,7 @@ class ComicModel {
               )
               .toList() ??
           [],
+      locales: _parseLocales(map['locales']),
     );
   }
 
@@ -116,6 +140,7 @@ extension ComicModelX on ComicModel {
       categoryId: categoryId,
       categoryName: categoryName,
       chapters: chapters.map((c) => c.toEntity()).toList(),
+      locales: locales,
     );
   }
 }
@@ -138,6 +163,7 @@ extension ComicEntityX on ComicEntity {
       categoryId: categoryId,
       categoryName: categoryName,
       chapters: chapters.map((c) => c.toModel()).toList(),
+      locales: locales,
     );
   }
 }

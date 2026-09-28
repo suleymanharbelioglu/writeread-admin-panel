@@ -8,6 +8,8 @@ class ChapterEntity {
   final bool isFreePreview;
   /// Download URL for chapter music (optional).
   final String? musicUrl;
+  /// Bumped on every page/music change so page URLs change. 0 = legacy.
+  final int pagesVersion;
 
   const ChapterEntity({
     required this.chapterId,
@@ -17,6 +19,7 @@ class ChapterEntity {
     required this.createdDate,
     this.isFreePreview = false,
     this.musicUrl,
+    this.pagesVersion = 0,
   });
 
   ChapterEntity copyWith({
@@ -28,6 +31,7 @@ class ChapterEntity {
     bool? isFreePreview,
     String? musicUrl,
     bool clearMusicUrl = false,
+    int? pagesVersion,
   }) {
     return ChapterEntity(
       chapterId: chapterId ?? this.chapterId,
@@ -37,6 +41,7 @@ class ChapterEntity {
       createdDate: createdDate ?? this.createdDate,
       isFreePreview: isFreePreview ?? this.isFreePreview,
       musicUrl: clearMusicUrl ? null : (musicUrl ?? this.musicUrl),
+      pagesVersion: pagesVersion ?? this.pagesVersion,
     );
   }
 }

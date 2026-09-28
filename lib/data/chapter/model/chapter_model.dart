@@ -9,6 +9,7 @@ class ChapterModel {
   final DateTime createdDate;
   final bool isFreePreview;
   final String? musicUrl;
+  final int pagesVersion;
 
   ChapterModel({
     required this.chapterId,
@@ -18,6 +19,7 @@ class ChapterModel {
     required this.createdDate,
     this.isFreePreview = false,
     this.musicUrl,
+    this.pagesVersion = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -29,6 +31,7 @@ class ChapterModel {
       'createdDate': Timestamp.fromDate(createdDate),
       'isFreePreview': isFreePreview,
       if (musicUrl != null && musicUrl!.isNotEmpty) 'musicUrl': musicUrl,
+      if (pagesVersion > 0) 'pagesVersion': pagesVersion,
     };
   }
 
@@ -41,6 +44,7 @@ class ChapterModel {
       createdDate: _parseDate(map['createdDate']),
       isFreePreview: map['isFreePreview'] as bool? ?? false,
       musicUrl: map['musicUrl'] as String?,
+      pagesVersion: (map['pagesVersion'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -64,6 +68,7 @@ extension ChapterModelX on ChapterModel {
       createdDate: createdDate,
       isFreePreview: isFreePreview,
       musicUrl: musicUrl,
+      pagesVersion: pagesVersion,
     );
   }
 }
@@ -78,6 +83,7 @@ extension ChapterEntityX on ChapterEntity {
       createdDate: createdDate,
       isFreePreview: isFreePreview,
       musicUrl: musicUrl,
+      pagesVersion: pagesVersion,
     );
   }
 }

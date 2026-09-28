@@ -5,15 +5,24 @@ import 'package:writeread_admin_panel/common/helper/navigator/app_navigator.dart
 import 'package:writeread_admin_panel/common/helper/ui/app_copy.dart';
 import 'package:writeread_admin_panel/common/helper/ui/app_feedback.dart';
 import 'package:writeread_admin_panel/common/widgets/loading_overlay.dart';
+import 'package:writeread_admin_panel/core/locale/app_locales.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecases/add_chapter.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecases/delete_all_chapter_images.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecases/delete_last_chapter.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecases/update_chapter.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_content_type.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_entity.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/clear_locale_chapter_pages.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/clear_locale_cover.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/delete_comic.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/delete_locale.dart';
 import 'package:writeread_admin_panel/domain/comic/usecases/update_comic.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/update_locale_metadata.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/upload_locale_cover.dart';
+import 'package:writeread_admin_panel/domain/comic/usecases/upsert_locale_chapter.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/add_chapter_cubit.dart';
+import 'package:writeread_admin_panel/presentation/comic/bloc/comic_locale_cubit.dart';
+import 'package:writeread_admin_panel/presentation/comic/bloc/comic_locale_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/current_comic_cubit.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/current_comic_state.dart';
 import 'package:writeread_admin_panel/presentation/comic/bloc/delete_chapter_cubit.dart';
@@ -30,6 +39,9 @@ import 'package:writeread_admin_panel/presentation/comic/widget/comic_chapters_s
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_description_section.dart';
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_editable_header_section.dart';
 import 'package:writeread_admin_panel/presentation/comic/widget/comic_header_section.dart';
+import 'package:writeread_admin_panel/presentation/comic/widget/comic_language_selector.dart';
+import 'package:writeread_admin_panel/presentation/comic/widget/comic_locale_editor_section.dart';
+import 'package:writeread_admin_panel/presentation/comic/widget/comic_locale_matrix.dart';
 import 'package:writeread_admin_panel/service_locator.dart';
 
 class ComicPage extends StatelessWidget {
@@ -63,6 +75,18 @@ class ComicPage extends StatelessWidget {
             deleteAllChapterImagesUseCase: sl<DeleteAllChapterImagesUseCase>(),
           ),
         ),
+        BlocProvider(
+          create: (_) => ComicLocaleCubit(
+            updateLocaleMetadataUseCase: sl<UpdateLocaleMetadataUseCase>(),
+            upsertLocaleChapterUseCase: sl<UpsertLocaleChapterUseCase>(),
+            clearLocaleChapterPagesUseCase:
+                sl<ClearLocaleChapterPagesUseCase>(),
+            deleteLocaleUseCase: sl<DeleteLocaleUseCase>(),
+            updateChapterUseCase: sl<UpdateChapterUseCase>(),
+            uploadLocaleCoverUseCase: sl<UploadLocaleCoverUseCase>(),
+            clearLocaleCoverUseCase: sl<ClearLocaleCoverUseCase>(),
+          ),
+        ),
       ],
       child: const ComicPage(),
     );
@@ -75,7 +99,8 @@ class ComicPage extends StatelessWidget {
             context.watch<DeleteChapterCubit>().state is DeleteChapterLoading ||
             context.watch<EditChapterCubit>().state is EditChapterLoading ||
             context.watch<EditComicCubit>().state is EditComicLoading ||
-            context.watch<AddChapterCubit>().state.isLoading;
+            context.watch<AddChapterCubit>().state.isLoading ||
+            context.watch<ComicLocaleCubit>().state.isLoading;
 
     return LoadingOverlay(
       isLoading: isLoading,
@@ -100,7 +125,13 @@ class ComicPage extends StatelessWidget {
           BlocListener<DeleteChapterCubit, DeleteChapterState>(
             listener: (context, state) {
               if (state is DeleteChapterSuccess) {
-                context.read<CurrentComicCubit>().removeLastChapter();
+                if (AppLocales.isEnglish(state.locale)) {
+                  context.read<CurrentComicCubit>().removeLastChapter();
+                } else {
+                  context
+                      .read<CurrentComicCubit>()
+                      .removeLastLocaleChapter(state.locale);
+                }
                 AppFeedback.showSuccess(context, 'Last chapter deleted');
               } else if (state is DeleteChapterFailure) {
                 AppFeedback.showError(context, state.message);
@@ -132,6 +163,37 @@ class ComicPage extends StatelessWidget {
                 AppFeedback.showSuccess(context, 'Comic updated');
               } else if (state is EditComicFailure) {
                 AppFeedback.showError(context, state.message);
+              }
+            },
+          ),
+          BlocListener<ComicLocaleCubit, ComicLocaleState>(
+            listener: (context, state) {
+              if (state.status == ComicLocaleStatus.failure &&
+                  state.message != null) {
+                AppFeedback.showError(context, state.message!);
+                return;
+              }
+              if (state.status != ComicLocaleStatus.success) return;
+
+              final current = context.read<CurrentComicCubit>();
+              if (state.updatedComic != null) {
+                current.setComic(state.updatedComic!);
+              } else if (state.chapterId != null &&
+                  (state.addedImageCount != null ||
+                      state.musicUrl != null ||
+                      state.isFreePreview != null ||
+                      state.chapterName != null)) {
+                current.applyLocaleChapterEdit(
+                  locale: state.operationLocale ?? state.selectedLocale,
+                  chapterId: state.chapterId!,
+                  chapterName: state.chapterName,
+                  addedImageCount: state.addedImageCount,
+                  musicUrl: state.musicUrl,
+                  isFreePreview: state.isFreePreview,
+                );
+              }
+              if (state.message != null) {
+                AppFeedback.showSuccess(context, state.message!);
               }
             },
           ),
@@ -259,156 +321,184 @@ class _ComicContentState extends State<_ComicContent> {
           },
         ),
       ],
-      child: BlocBuilder<EditComicFormCubit, EditComicFormState>(
-        builder: (context, form) {
-          final formCubit = context.read<EditComicFormCubit>();
-          return Scaffold(
-            appBar: AppBar(
-              title: Text(form.isEditing ? 'Edit comic' : comic.title),
-              actions: [
-                if (form.isEditing) ...[
-                  TextButton(
-                    onPressed: () {
-                      _titleController.text = comic.title;
-                      _descriptionController.text = comic.description;
-                      _productIdController.text = comic.productId;
-                      formCubit.cancel(comic);
-                    },
-                    child: const Text('Cancel'),
+      child: BlocBuilder<ComicLocaleCubit, ComicLocaleState>(
+        buildWhen: (prev, curr) => prev.selectedLocale != curr.selectedLocale,
+        builder: (context, localeState) {
+          final isEnglish = AppLocales.isEnglish(localeState.selectedLocale);
+
+          return BlocBuilder<EditComicFormCubit, EditComicFormState>(
+            builder: (context, form) {
+              final formCubit = context.read<EditComicFormCubit>();
+              return Scaffold(
+                appBar: AppBar(
+                  title: Text(
+                    isEnglish
+                        ? (form.isEditing ? 'Edit comic' : comic.title)
+                        : '${AppLocales.nativeName(localeState.selectedLocale)} — ${comic.title}',
                   ),
-                  BlocBuilder<EditComicCubit, EditComicState>(
-                    builder: (context, editState) {
-                      final loading = editState is EditComicLoading;
-                      return FilledButton(
-                        onPressed: loading
-                            ? null
-                            : () => formCubit.save(
-                                  comic: comic,
-                                  title: _titleController.text,
-                                  description: _descriptionController.text,
-                                  productId: _productIdController.text,
-                                ),
-                        child: loading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Save'),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                ] else ...[
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: _confirmAndDeleteComic,
-                    tooltip: 'Delete comic',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () {
-                      _titleController.text = comic.title;
-                      _descriptionController.text = comic.description;
-                      _productIdController.text = comic.productId;
-                      formCubit.startEdit(comic);
-                    },
-                    tooltip: 'Edit comic',
-                  ),
-                ],
-              ],
-            ),
-            body: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (form.isEditing)
-                    ComicEditableHeaderSection(
-                      comic: comic,
-                      imageUrl: imageUrl,
-                      titleController: _titleController,
-                      onImagePicked: formCubit.setImageBytes,
-                      newImageBytes: form.newImageBytes,
-                    )
-                  else
-                    ComicHeaderSection(comic: comic, imageUrl: imageUrl),
-                  if (form.isEditing)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
-                        children: [
-                          TextField(
-                            controller: _descriptionController,
-                            decoration: const InputDecoration(
-                              labelText: 'Description',
-                              border: OutlineInputBorder(),
-                              alignLabelWithHint: true,
-                              helperText: AppCopy.descriptionHelper,
-                            ),
-                            maxLines: 4,
-                          ),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            initialValue: ComicContentType.parse(form.contentType),
-                            decoration: const InputDecoration(
-                              labelText: 'Content type',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: ComicContentType.values
-                                .map(
-                                  (type) => DropdownMenuItem(
-                                    value: type,
-                                    child: Text(ComicContentType.label(type)),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (value) {
-                              if (value == null) return;
-                              formCubit.setContentType(value);
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          SwitchListTile.adaptive(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Free comic'),
-                            subtitle: Text(
-                              form.isFree
-                                  ? AppCopy.freeComicOn
-                                  : AppCopy.freeComicOff,
-                            ),
-                            value: form.isFree,
-                            onChanged: formCubit.setFree,
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: _productIdController,
-                            decoration: const InputDecoration(
-                              labelText: 'Store Product ID (IAP) *',
-                              border: OutlineInputBorder(),
-                              hintText: AppCopy.productIdHint,
-                              helperText: AppCopy.productIdHelper,
-                              helperMaxLines: 4,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          SwitchListTile.adaptive(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Sensitive content'),
-                            subtitle: const Text(AppCopy.sensitiveSubtitle),
-                            value: form.isSensitive,
-                            onChanged: formCubit.setSensitive,
-                          ),
-                        ],
+                  actions: [
+                    if (isEnglish && form.isEditing) ...[
+                      TextButton(
+                        onPressed: () {
+                          _titleController.text = comic.title;
+                          _descriptionController.text = comic.description;
+                          _productIdController.text = comic.productId;
+                          formCubit.cancel(comic);
+                        },
+                        child: const Text('Cancel'),
                       ),
-                    )
-                  else
-                    ComicDescriptionSection(description: comic.description),
-                  ComicChaptersSection(comic: comic),
-                ],
-              ),
-            ),
+                      BlocBuilder<EditComicCubit, EditComicState>(
+                        builder: (context, editState) {
+                          final loading = editState is EditComicLoading;
+                          return FilledButton(
+                            onPressed: loading
+                                ? null
+                                : () => formCubit.save(
+                                      comic: comic,
+                                      title: _titleController.text,
+                                      description: _descriptionController.text,
+                                      productId: _productIdController.text,
+                                    ),
+                            child: loading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('Save'),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                    ] else if (isEnglish) ...[
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: _confirmAndDeleteComic,
+                        tooltip: 'Delete comic',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () {
+                          _titleController.text = comic.title;
+                          _descriptionController.text = comic.description;
+                          _productIdController.text = comic.productId;
+                          formCubit.startEdit(comic);
+                        },
+                        tooltip: 'Edit comic',
+                      ),
+                    ],
+                  ],
+                ),
+                body: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ComicLanguageSelector(comic: comic),
+                      ComicLocaleMatrix(comic: comic),
+                      if (isEnglish) ...[
+                        if (form.isEditing)
+                          ComicEditableHeaderSection(
+                            comic: comic,
+                            imageUrl: imageUrl,
+                            titleController: _titleController,
+                            onImagePicked: formCubit.setImageBytes,
+                            newImageBytes: form.newImageBytes,
+                          )
+                        else
+                          ComicHeaderSection(comic: comic, imageUrl: imageUrl),
+                        if (form.isEditing)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Column(
+                              children: [
+                                TextField(
+                                  controller: _descriptionController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Description',
+                                    border: OutlineInputBorder(),
+                                    alignLabelWithHint: true,
+                                    helperText: AppCopy.descriptionHelper,
+                                  ),
+                                  maxLines: 4,
+                                ),
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<String>(
+                                  initialValue:
+                                      ComicContentType.parse(form.contentType),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Content type',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: ComicContentType.values
+                                      .map(
+                                        (type) => DropdownMenuItem(
+                                          value: type,
+                                          child: Text(
+                                            ComicContentType.label(type),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    formCubit.setContentType(value);
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                SwitchListTile.adaptive(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Free comic'),
+                                  subtitle: Text(
+                                    form.isFree
+                                        ? AppCopy.freeComicOn
+                                        : AppCopy.freeComicOff,
+                                  ),
+                                  value: form.isFree,
+                                  onChanged: formCubit.setFree,
+                                ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: _productIdController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Store Product ID (IAP) *',
+                                    border: OutlineInputBorder(),
+                                    hintText: AppCopy.productIdHint,
+                                    helperText: AppCopy.productIdHelper,
+                                    helperMaxLines: 4,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                SwitchListTile.adaptive(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Sensitive content'),
+                                  subtitle:
+                                      const Text(AppCopy.sensitiveSubtitle),
+                                  value: form.isSensitive,
+                                  onChanged: formCubit.setSensitive,
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          ComicDescriptionSection(
+                            description: comic.description,
+                          ),
+                        ComicChaptersSection(comic: comic),
+                      ] else
+                        ComicLocaleEditorSection(
+                          key: ValueKey(
+                            '${comic.comicId}-${localeState.selectedLocale}',
+                          ),
+                          comic: comic,
+                          locale: localeState.selectedLocale,
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
           );
         },
       ),

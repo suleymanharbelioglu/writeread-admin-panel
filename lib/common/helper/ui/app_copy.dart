@@ -53,5 +53,12 @@ class AppCopy {
       'Open without purchase (paid comics only).';
 
   static const homeTip =
-      'Tap a comic to manage chapters, pricing, and cover.';
+      'Tap a comic to manage English content and translations. '
+      'Color pills show Ready / Partial languages. '
+      'Chapters are per language — empty languages show “Coming soon” in the app.';
+
+  static const localeEditorTip =
+      'English is the root comic. Other languages need their own metadata and '
+      'chapters (no English chapter fallback). Save metadata before switching '
+      'language. Ready = title + description + at least one chapter with pages.';
 }

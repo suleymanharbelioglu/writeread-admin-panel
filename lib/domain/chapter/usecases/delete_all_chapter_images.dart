@@ -13,12 +13,15 @@ class DeleteAllChapterImagesUseCase
   Future<Either<String, void>> call({
     DeleteAllChapterImagesParams? params,
   }) async {
-    if (params == null) return const Left('Params required');
+    if (params == null) {
+      return const Left('Delete chapter images params required');
+    }
     if (params.comicId.isEmpty) return const Left('Comic id required');
     if (params.chapterId.isEmpty) return const Left('Chapter id required');
     return _chapterRepository.deleteAllChapterImages(
       params.comicId,
       params.chapterId,
+      locale: params.locale,
     );
   }
 }

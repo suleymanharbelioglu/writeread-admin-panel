@@ -30,6 +30,7 @@ class AddChapterUseCase
       params.imageBytesList,
       musicBytes: params.musicBytes,
       isFreePreview: params.isFreePreview,
+      locale: params.locale,
     );
   }
 }

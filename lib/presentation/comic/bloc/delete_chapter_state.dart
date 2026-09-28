@@ -11,7 +11,8 @@ final class DeleteChapterLoading extends DeleteChapterState {
 }
 
 final class DeleteChapterSuccess extends DeleteChapterState {
-  const DeleteChapterSuccess();
+  const DeleteChapterSuccess({this.locale = 'en'});
+  final String locale;
 }
 
 final class DeleteChapterFailure extends DeleteChapterState {

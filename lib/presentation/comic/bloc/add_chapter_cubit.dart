@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:writeread_admin_panel/common/helper/ui/app_log.dart';
+import 'package:writeread_admin_panel/core/locale/app_locales.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecases/add_chapter.dart';
 import 'package:writeread_admin_panel/domain/chapter/usecases/add_chapter_params.dart';
 import 'package:writeread_admin_panel/domain/comic/entity/comic_entity.dart';
@@ -12,11 +13,15 @@ class AddChapterCubit extends Cubit<AddChapterState> {
 
   final AddChapterUseCase _addChapterUseCase;
 
-  void prepareForComic(ComicEntity comic) {
+  void prepareForComic(
+    ComicEntity comic, {
+    String locale = AppLocales.english,
+  }) {
     emit(
       AddChapterState(
         comicId: comic.comicId,
         comicIsFree: comic.isFree,
+        locale: locale,
       ),
     );
   }
@@ -61,6 +66,7 @@ class AddChapterCubit extends Cubit<AddChapterState> {
           imageBytesList: state.imageBytesList,
           isFreePreview: !state.comicIsFree && state.isFreePreview,
           musicBytes: state.musicBytes,
+          locale: state.locale,
         ),
       );
       if (isClosed) return;

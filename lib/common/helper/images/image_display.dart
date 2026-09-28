@@ -1,18 +1,27 @@
 import 'package:writeread_admin_panel/core/constants/app_urls.dart';
+import 'package:writeread_admin_panel/core/locale/app_locales.dart';
+import 'package:writeread_admin_panel/core/locale/chapter_storage_paths.dart';
 import 'package:writeread_admin_panel/domain/chapter/entity/chapter_entity.dart';
 
 /// Builds display URLs for comic and chapter images.
-/// Storage paths these map to (for delete comic):
-/// - Comic image: Comics/{filename} (filename = doc image field, e.g. comicId_cover.jpg)
-/// - Chapter images: Comics/{comicId}/{chapterId}/1.jpeg, 2.jpeg, ... → folder Comics/{comicId}/
 class ImageDisplayHelper {
-  static String generateComicImageURL(String title) {
-    return AppUrl.comicImage + title + AppUrl.alt;
+  static String generateComicImageURL(String image) {
+    final encoded = image.split('/').map(Uri.encodeComponent).join('%2F');
+    return AppUrl.comicImage + encoded + AppUrl.alt;
   }
 
-  static List<String> generateChapterImageURLs(ChapterEntity chapter) {
+  static List<String> generateChapterImageURLs(
+    ChapterEntity chapter, {
+    String locale = AppLocales.english,
+  }) {
     return List.generate(chapter.pageCount, (index) {
-      return '${AppUrl.chapterImage}${chapter.comicId}%2F${chapter.chapterId}%2F${index + 1}${AppUrl.chapterImageExtension}${AppUrl.alt}';
+      return ChapterStoragePaths.pageDownloadUrl(
+        comicId: chapter.comicId,
+        chapterId: chapter.chapterId,
+        pageNumber: index + 1,
+        locale: locale,
+        pagesVersion: chapter.pagesVersion,
+      );
     });
   }
 }
